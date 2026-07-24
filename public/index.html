@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ฟังนิยาย</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">ฟังนิยาย</div>
+  <form id="load-form" class="load">
+    <input id="url" type="url" placeholder="วางลิงก์ตอนนิยายที่นี่" autocomplete="off" spellcheck="false">
+    <button type="submit" id="load-btn">ดึงเนื้อหา</button>
+  </form>
+  <button id="settings-toggle" class="ghost" title="ตั้งค่า">ตั้งค่า</button>
+</header>
+
+<section id="settings" class="settings hidden">
+  <label>
+    <span>เครื่องเสียง</span>
+    <select id="engine"></select>
+  </label>
+  <label>
+    <span>เสียง</span>
+    <select id="voice"></select>
+  </label>
+  <label>
+    <span>ความเร็ว <b id="speed-val">1.00x</b></span>
+    <input id="speed" type="range" min="0.6" max="2" step="0.05" value="1">
+  </label>
+  <label>
+    <span>ตั้งเวลาปิด</span>
+    <select id="sleep">
+      <option value="0">ไม่ตั้ง</option>
+      <option value="15">15 นาที</option>
+      <option value="30">30 นาที</option>
+      <option value="45">45 นาที</option>
+      <option value="60">60 นาที</option>
+    </select>
+  </label>
+  <div class="settings-note" id="cache-info"></div>
+</section>
+
+<main>
+  <div id="status" class="status">วางลิงก์ตอนนิยายด้านบนแล้วกดดึงเนื้อหา</div>
+  <h1 id="title" class="title hidden"></h1>
+  <div id="meta" class="meta hidden"></div>
+  <article id="reader" class="reader"></article>
+</main>
+
+<footer id="player" class="player hidden">
+  <div class="progress"><div id="progress-fill"></div></div>
+  <div class="controls">
+    <button id="prev" title="ย่อหน้าก่อนหน้า (←)">◀◀</button>
+    <button id="play" class="primary" title="เล่น / หยุด (Space)">▶</button>
+    <button id="next" title="ย่อหน้าถัดไป (→)">▶▶</button>
+    <div class="counter"><span id="pos">0</span> / <span id="total">0</span></div>
+    <div class="spacer"></div>
+    <button id="go-next-chapter" class="ghost hidden">ตอนถัดไป →</button>
+  </div>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

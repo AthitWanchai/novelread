@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เช็คเสียงที่ใช้ได้ในเบราว์เซอร์นี้</title>
+<style>
+  body { font-family: "Segoe UI", Tahoma, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; line-height: 1.6; }
+  h1 { font-size: 20px; }
+  #summary { background: #f4f4f5; border-left: 4px solid #666; padding: 12px 16px; margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  th { background: #f4f4f5; }
+  tr.thai { background: #fff8e1; }
+  button { padding: 5px 12px; cursor: pointer; }
+  code { background: #f4f4f5; padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>เสียงที่เบราว์เซอร์นี้ใช้ได้</h1>
+<p>เปิดไฟล์นี้ทั้งใน <b>Edge</b> และ <b>Chrome</b> แล้วเทียบกัน — แถวสีเหลืองคือเสียงภาษาไทย</p>
+
+<div id="summary">กำลังโหลดรายชื่อเสียง...</div>
+
+<label>ข้อความทดสอบ:
+  <input id="sample" size="60" value="ณ ราตรีอันเงียบงัน เสียงลมพัดผ่านยอดไผ่ดังเบาๆ เขาก้าวเท้าเข้าไปในความมืด">
+</label>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>ชื่อเสียง</th><th>ภาษา</th><th>ประเภท</th><th>ฟัง</th></tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script>
+function render() {
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return;
+
+  const thai = voices.filter(v => v.lang.toLowerCase().startsWith('th'));
+  document.getElementById('summary').innerHTML =
+    `เบราว์เซอร์นี้เห็นเสียงทั้งหมด <b>${voices.length}</b> ตัว ` +
+    `— เป็นภาษาไทย <b>${thai.length}</b> ตัว` +
+    (thai.length ? `: ${thai.map(v => v.name).join(', ')}` : ' <b style="color:#c00">(ไม่พบเสียงไทย)</b>');
+
+  const tbody = document.getElementById('rows');
+  tbody.innerHTML = '';
+  voices.forEach((v, i) => {
+    const tr = document.createElement('tr');
+    if (v.lang.toLowerCase().startsWith('th')) tr.className = 'thai';
+    tr.innerHTML = `<td>${i}</td><td>${v.name}</td><td>${v.lang}</td>` +
+                   `<td>${v.localService ? 'ในเครื่อง' : 'ออนไลน์'}</td><td></td>`;
+    const btn = document.createElement('button');
+    btn.textContent = '▶ ทดสอบ';
+    btn.onclick = () => {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(document.getElementById('sample').value);
+      u.voice = v;
+      u.lang = v.lang;
+      speechSynthesis.speak(u);
+    };
+    tr.lastElementChild.appendChild(btn);
+    tbody.appendChild(tr);
+  });
+}
+
+speechSynthesis.onvoiceschanged = render;
+render();
+setTimeout(render, 300);
+</script>
+
+</body>
+</html>

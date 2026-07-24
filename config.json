@@ -1,0 +1,15 @@
+{
+  "_comment": "แก้ค่าตรงนี้แล้วเปิดโปรแกรมใหม่ ไม่ต้องแตะโค้ด",
+
+  "engine": "edge",
+  "voice": "th-TH-PremwadeeNeural",
+  "rate": "-8%",
+  "pitch": "+0Hz",
+
+  "max_chars": 320,
+  "port": 8756,
+
+  "_engine_options": "edge = ฟรีไม่ต้องมีคีย์ | gemini = โทนดีกว่า ต้องมี API key",
+  "_rate_hint": "ช่วง -50% ถึง +100% ค่าติดลบ = ช้าลง เหมาะกับการฟังนิยาย",
+  "_pitch_hint": "เช่น -10Hz ทำให้เสียงทุ้มลง"
+}

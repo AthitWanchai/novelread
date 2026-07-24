@@ -1,0 +1,231 @@
+:root {
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --surface-2: #2a2420;
+  --line: #3a322c;
+  --text: #ece5dd;
+  --muted: #9b8f84;
+  --accent: #d9a441;
+  --accent-dim: #6b5220;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding-bottom: 110px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Leelawadee UI", "Sarabun", "Segoe UI", Tahoma, sans-serif;
+  line-height: 1.9;
+}
+
+/* ---------------------------------------------------------------- แถบบน */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(20, 17, 15, .95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.load {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+input[type="url"] {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+input[type="url"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+button {
+  padding: 9px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  white-space: nowrap;
+}
+
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+
+button.ghost { background: transparent; color: var(--muted); }
+
+#load-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #241a06;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- ตั้งค่า */
+
+.settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.settings b { color: var(--accent); font-weight: 600; }
+
+select, input[type="range"] {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+input[type="range"] { padding: 0; accent-color: var(--accent); }
+
+.settings-note {
+  align-self: end;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------- เนื้อหา */
+
+main { max-width: 780px; margin: 0 auto; padding: 28px 20px; }
+
+.status {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.status.error {
+  border-color: #7d3a30;
+  background: #2a1a17;
+  color: #f0b9ae;
+}
+
+.title { font-size: 24px; line-height: 1.5; margin: 8px 0 6px; }
+
+.meta { color: var(--muted); font-size: 13px; margin-bottom: 26px; }
+
+.reader p {
+  margin: 0 0 6px;
+  padding: 10px 14px;
+  border-left: 3px solid transparent;
+  border-radius: 0 8px 8px 0;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.reader p:hover { background: var(--surface); }
+
+.reader p.done { color: var(--muted); }
+
+.reader p.current {
+  background: var(--surface-2);
+  border-left-color: var(--accent);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- เครื่องเล่น */
+
+.player {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(30, 26, 23, .97);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--line);
+}
+
+.progress { height: 3px; background: var(--surface-2); }
+
+#progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width .3s;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 14px 20px;
+}
+
+.controls .spacer { flex: 1; }
+
+#play {
+  width: 52px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #241a06;
+  font-size: 16px;
+}
+
+#play.loading {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+  color: var(--muted);
+}
+
+.counter { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.hidden { display: none !important; }
+
+@media (max-width: 640px) {
+  .bar { flex-wrap: wrap; }
+  .load { order: 3; width: 100%; }
+  .reader p { font-size: 17px; }
+}

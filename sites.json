@@ -1,0 +1,18 @@
+{
+  "_comment": "กฎการแกะเนื้อหาแยกตามโดเมน ถ้าโดเมนไหนไม่มีในนี้ ระบบจะใช้ตัวแกะอัตโนมัติ (trafilatura) แทน",
+  "_template": {
+    "title": "CSS selector ของชื่อตอน",
+    "content": "CSS selector ของกล่องเนื้อเรื่อง",
+    "remove": ["selector ของส่วนที่ต้องตัดทิ้ง เช่น โฆษณา คอมเมนต์"],
+    "next": "CSS selector ของลิงก์ไปตอนถัดไป",
+    "prev": "CSS selector ของลิงก์ไปตอนก่อนหน้า"
+  },
+
+  "example.com": {
+    "title": "h1.chapter-title",
+    "content": "div.chapter-content",
+    "remove": [".ads", ".comment", "script", "style"],
+    "next": "a.next-chapter",
+    "prev": "a.prev-chapter"
+  }
+}
