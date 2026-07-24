@@ -1,0 +1,23 @@
+# สภาพแวดล้อม Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# เนื้อหาและเสียงที่ดึงมาจากเว็บอื่น - ห้ามอัปขึ้น repo เด็ดขาด
+cache/
+samples/
+*.mp3
+*.wav
+
+# ค่าส่วนตัว / คีย์
+.env
+config.local.json
+
+# ค่าเฉพาะเครื่อง (มี path แบบเต็มของเครื่องตัวเอง)
+.claude/
+
+# ระบบปฏิบัติการ / เครื่องมือ
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

@@ -74,15 +74,19 @@ _RULES = [
     (re.compile(r"\n{3,}"), "\n\n"),
 ]
 
-# ไม้ยมก: ทำซ้ำคำหน้า  "ค่อย ๆ" -> "ค่อย ค่อย"
-_REPEAT = re.compile(r"([฀-๿]+)\s*ๆ")
+# หมายเหตุเรื่องไม้ยมก (ๆ)
+# เคยลองคลี่เป็นคำซ้ำเองด้วย regex แล้วพัง เพราะภาษาไทยไม่เว้นวรรคระหว่างคำ
+# regex จึงกวาดมาทั้งพรืด "เขาค่อย ๆ" กลายเป็น "เขาค่อย เขาค่อย" แทนที่จะเป็น "ค่อย ค่อย"
+# การทำให้ถูกต้องต้องใช้ตัวตัดคำไทย (pythainlp) ซึ่งเป็นของหนัก
+# ระหว่างนี้ปล่อยให้เครื่องเสียง neural จัดการเอง เพราะมันมีโมเดลภาษาไทยในตัว
 
 # ตัวเลข (รองรับ comma และทศนิยม)
 _NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 
 
-def load_dictionary(path: Path) -> dict:
+def load_dictionary(path: str | Path) -> dict:
     """พจนานุกรมคำอ่านที่เติมเองได้ เช่น ชื่อตัวละครนิยายแปล"""
+    path = Path(path)
     if not path.exists():
         return {}
     try:
@@ -100,7 +104,6 @@ def normalize(text: str, dictionary: dict | None = None) -> str:
     for word, reading in (dictionary or {}).items():
         text = text.replace(word, reading)
 
-    text = _REPEAT.sub(r"\1 \1", text)
     text = _NUMBER.sub(_num_repl, text)
 
     for pattern, repl in _RULES:

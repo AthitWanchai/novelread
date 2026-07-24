@@ -21,7 +21,8 @@ _NEXT_WORDS = ["ตอนถัดไป", "ตอนต่อไป", "บท�
 _PREV_WORDS = ["ตอนก่อนหน้า", "บทก่อนหน้า", "ก่อนหน้า", "ย้อนกลับ", "prev", "previous", "‹", "«"]
 
 
-def load_rules(path: Path) -> dict:
+def load_rules(path: str | Path) -> dict:
+    path = Path(path)
     if not path.exists():
         return {}
     try:
