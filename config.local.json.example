@@ -1,0 +1,10 @@
+{
+  "_comment": "ก็อปไฟล์นี้เป็น config.local.json (ตัดคำว่า .example ออก) แล้วใส่ key ของคุณ",
+  "_note": "config.local.json ถูกกันไม่ให้ขึ้น GitHub แล้ว key จึงไม่หลุด",
+
+  "gemini_api_key": "วาง-API-key-จาก-google-ai-studio-ตรงนี้",
+
+  "_เปิดใช้เสียง_gemini": "ถ้าอยากให้ Gemini เป็นเสียงหลัก ใส่สองบรรทัดล่างนี้ด้วย",
+  "engine": "gemini",
+  "voice": "Charon"
+}

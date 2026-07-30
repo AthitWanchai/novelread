@@ -7,6 +7,7 @@
 """
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -36,9 +37,23 @@ for d in (CACHE_AUDIO, CACHE_TEXT):
 
 
 def load_config() -> dict:
-    path = ROOT / "config.json"
-    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    return {k: v for k, v in data.items() if not k.startswith("_")}
+    """อ่าน config.json แล้วให้ config.local.json (ที่ไม่ขึ้น git) ทับได้
+
+    ใช้ config.local.json เก็บของลับอย่าง gemini_api_key เพื่อไม่ให้หลุดขึ้น repo
+    """
+    data = {}
+    for name in ("config.json", "config.local.json"):
+        path = ROOT / name
+        if path.exists():
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            data.update({k: v for k, v in loaded.items() if not k.startswith("_")})
+
+    # ถ้าใส่ key ไว้ในไฟล์ ก็ยัดเข้า env ให้ตัวเครื่องเสียงหยิบไปใช้ได้เลย
+    key = data.get("gemini_api_key")
+    if key and not os.environ.get("GEMINI_API_KEY"):
+        os.environ["GEMINI_API_KEY"] = key
+
+    return data
 
 
 CONFIG = load_config()

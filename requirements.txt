@@ -6,3 +6,4 @@ trafilatura
 lxml
 edge-tts
 playwright
+google-genai

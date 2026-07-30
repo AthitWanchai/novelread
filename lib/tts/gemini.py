@@ -18,7 +18,8 @@ import struct
 NAME = "Google Gemini TTS"
 NEEDS_KEY = True
 
-MODEL = "gemini-2.5-flash-preview-tts"
+# แก้ผ่าน env GEMINI_TTS_MODEL หรือ config ได้ เผื่อชื่อรุ่นเปลี่ยนในอนาคต
+MODEL = os.environ.get("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
 DEFAULT_VOICE = "Kore"
 
 # เสียงของ Gemini เป็นชุดกลาง ใช้ได้ทุกภาษา (โมเดลเลือกสำเนียงตามข้อความ)
