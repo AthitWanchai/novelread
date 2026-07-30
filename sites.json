@@ -1,6 +1,8 @@
 {
   "_comment": "กฎการแกะเนื้อหาแยกตามโดเมน ถ้าโดเมนไหนไม่มีในนี้ ระบบจะใช้ตัวแกะอัตโนมัติ (trafilatura) แทน",
   "_template": {
+    "render": "js = สั่งให้ใช้ headless browser (เว็บที่เนื้อหาโหลดด้วย JavaScript), ไม่ใส่ = ดึงตรง",
+    "wait": "CSS selector ที่รอให้โผล่ก่อนถือว่าโหลดเสร็จ (ใช้คู่กับ render:js)",
     "title": "CSS selector ของชื่อตอน",
     "content": "CSS selector ของกล่องเนื้อเรื่อง",
     "remove": ["selector ของส่วนที่ต้องตัดทิ้ง เช่น โฆษณา คอมเมนต์"],
@@ -8,11 +10,11 @@
     "prev": "CSS selector ของลิงก์ไปตอนก่อนหน้า"
   },
 
-  "example.com": {
-    "title": "h1.chapter-title",
-    "content": "div.chapter-content",
-    "remove": [".ads", ".comment", "script", "style"],
-    "next": "a.next-chapter",
-    "prev": "a.prev-chapter"
+  "x-fic.com": {
+    "render": "js",
+    "wait": "div[style*=\"IBM Plex Sans Thai\"]",
+    "title": "h1",
+    "content": "div[style*=\"IBM Plex Sans Thai\"]",
+    "remove": []
   }
 }

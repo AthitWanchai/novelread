@@ -19,6 +19,13 @@ from pydantic import BaseModel
 from lib import extractor, fetcher, normalize
 from lib import tts as tts_engines
 
+
+async def _render(url: str, rule: dict | None):
+    """render หน้าเว็บด้วย headless browser (นำเข้าแบบ lazy เพราะเป็นของหนัก)"""
+    from lib import renderer
+    wait = rule.get("wait") if rule else None
+    return await renderer.fetch_rendered(url, wait_selector=wait)
+
 ROOT = Path(__file__).parent
 PUBLIC = ROOT / "public"
 CACHE_AUDIO = ROOT / "cache" / "audio"
@@ -86,18 +93,33 @@ async def api_extract(req: ExtractRequest):
     if cache_file.exists() and not req.refresh:
         return JSONResponse(json.loads(cache_file.read_text(encoding="utf-8")))
 
-    try:
-        html, final_url = await fetcher.fetch_html(url)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"ดึงหน้าเว็บไม่สำเร็จ: {exc}")
-
     rules = extractor.load_rules(ROOT / "sites.json")
+    rule = extractor.rule_for(url, rules)
+    force_render = bool(rule and rule.get("render") == "js")
+
+    # เว็บที่รู้อยู่แล้วว่าเป็น JS ข้ามการดึงแบบธรรมดาไปเลย
+    if force_render:
+        html, final_url = await _render(url, rule)
+    else:
+        try:
+            html, final_url = await fetcher.fetch_html(url)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"ดึงหน้าเว็บไม่สำเร็จ: {exc}")
+
     result = extractor.extract(html, final_url, rules)
+
+    # ดึงแบบธรรมดาแล้วได้เนื้อหาน้อยผิดปกติ ลอง render ด้วย headless browser สักครั้ง
+    if len(result["text"]) < 200 and not force_render and CONFIG.get("auto_render", True):
+        try:
+            html, final_url = await _render(url, rule)
+            result = extractor.extract(html, final_url, rules)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"ต้อง render ด้วย JS แต่ไม่สำเร็จ: {exc}")
 
     if not result["text"]:
         raise HTTPException(
             status_code=422,
-            detail="แกะเนื้อเรื่องไม่ได้ — หน้านี้อาจสร้างเนื้อหาด้วย JavaScript "
+            detail="แกะเนื้อเรื่องไม่ได้ — หน้านี้อาจต้อง login "
                    "หรือต้องเพิ่ม selector ของเว็บนี้ลงใน sites.json",
         )
 
@@ -145,6 +167,15 @@ async def api_tts(req: TtsRequest):
 
     cache_file.write_bytes(audio)
     return Response(audio, media_type=mime, headers={"X-Cache": "miss"})
+
+
+@app.on_event("shutdown")
+async def _on_shutdown():
+    try:
+        from lib import renderer
+        await renderer.shutdown()
+    except Exception:
+        pass
 
 
 @app.get("/api/cache-size")

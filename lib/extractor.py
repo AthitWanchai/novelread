@@ -37,6 +37,11 @@ def _domain(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+def rule_for(url: str, rules: dict) -> dict | None:
+    """คืนกฎของโดเมนนี้ (ถ้ามี) ให้ฝั่งเซิร์ฟเวอร์ดูว่าต้อง render ด้วย JS ไหม"""
+    return rules.get(_domain(url))
+
+
 def _find_link(soup: BeautifulSoup, base_url: str, words: list[str]) -> str | None:
     """หาลิงก์ตอนถัดไป/ก่อนหน้าแบบเดาจากข้อความในลิงก์"""
     for a in soup.find_all("a", href=True):
