@@ -5,6 +5,7 @@
 รัน:  .venv\\Scripts\\python.exe server.py
 หรือดับเบิลคลิก start.bat
 """
+import asyncio
 import hashlib
 import json
 import os
@@ -58,6 +59,12 @@ def load_config() -> dict:
 
 CONFIG = load_config()
 app = FastAPI(title="เว็บฟังนิยายเสียง")
+from lib.platform import router as platform_router
+app.include_router(platform_router)
+from lib.covers import router as covers_router
+app.include_router(covers_router)
+from lib.covers import router as covers_router
+app.include_router(covers_router)
 
 
 # ------------------------------------------------------------------ โมเดลข้อมูล
@@ -83,7 +90,7 @@ def _key(*parts: str) -> str:
 
 @app.get("/api/config")
 async def api_config():
-    return CONFIG
+    return {k: v for k, v in CONFIG.items() if not any(s in k.lower() for s in ("key", "secret", "password", "token"))}
 
 
 @app.get("/api/voices")
@@ -176,9 +183,11 @@ async def api_tts(req: TtsRequest):
                         headers={"X-Cache": "hit"})
 
     try:
-        audio = await tts_engines.synth(engine, text, voice, rate=rate, pitch=pitch)
+        audio = await asyncio.wait_for(tts_engines.synth(engine, text, voice, rate=rate, pitch=pitch), timeout=28)
+        if not audio:
+            raise RuntimeError("บริการเสียงส่งไฟล์ว่าง")
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"สร้างเสียงไม่สำเร็จ: {exc}")
+        raise HTTPException(status_code=502, detail="สร้างเสียงไม่สำเร็จ บริการเสียงอาจขัดข้อง กรุณาลองใหม่ หรือเลือกเสียงอื่นในตั้งค่า") from exc
 
     cache_file.write_bytes(audio)
     return Response(audio, media_type=mime, headers={"X-Cache": "miss"})
@@ -210,9 +219,10 @@ app.mount("/", StaticFiles(directory=PUBLIC), name="static")
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
     port = CONFIG.get("port", 8756)
     print()
-    print("  เว็บฟังนิยายเสียง")
+    print("  Novelread 1.0 — อ่าน เขียน และฟังนิยาย")
     print(f"  เปิดที่ http://127.0.0.1:{port}")
     print(f"  เครื่องเสียง: {CONFIG.get('engine')} / {CONFIG.get('voice')}")
     print("  กด Ctrl+C เพื่อปิด")

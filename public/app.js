@@ -31,6 +31,7 @@ const state = {
   blobs: new Map(),          // index -> objectURL
   pending: new Map(),        // index -> Promise
   sleepTimer: null,
+  generation: 0, playGeneration: 0, controllers: new Set(),
 };
 
 /* ------------------------------------------------------------------ ตั้งค่า */
@@ -54,10 +55,13 @@ async function boot() {
   if (last) el.url.value = last;
 }
 
+let voiceGeneration = 0;
 async function loadVoices() {
+  const ticket = ++voiceGeneration;
   el.voice.innerHTML = '<option>กำลังโหลด...</option>';
   try {
     const data = await (await fetch(`/api/voices?engine=${el.engine.value}`)).json();
+    if (ticket !== voiceGeneration) return;
     if (data.detail) throw new Error(data.detail);
 
     el.voice.innerHTML = '';
@@ -68,9 +72,12 @@ async function loadVoices() {
       el.voice.appendChild(opt);
     }
     const saved = localStorage.getItem(`voice:${el.engine.value}`);
-    el.voice.value = saved || state.config.voice || data.voices[0]?.id || '';
+    const preferred = saved || state.config.voice;
+    el.voice.value = data.voices.some(v => v.id === preferred) ? preferred : data.voices[0]?.id || '';
   } catch (err) {
-    el.voice.innerHTML = `<option>ใช้ไม่ได้: ${err.message}</option>`;
+    if (ticket !== voiceGeneration) return;
+    el.voice.replaceChildren(new Option('โหลดรายชื่อเสียงไม่สำเร็จ เปลี่ยนเครื่องเสียงเพื่อลองใหม่', ''));
+    setStatus('โหลดรายชื่อเสียงไม่สำเร็จ กรุณาลองใหม่ในตั้งค่า', true);
   }
 }
 
@@ -145,6 +152,9 @@ function setStatus(msg, isError = false) {
 /* ------------------------------------------------------------------ เสียง */
 
 function clearBlobs() {
+  state.generation++;
+  for (const controller of state.controllers) controller.abort();
+  state.controllers.clear();
   for (const url of state.blobs.values()) URL.revokeObjectURL(url);
   state.blobs.clear();
   state.pending.clear();
@@ -155,24 +165,32 @@ function fetchAudio(i) {
   if (state.blobs.has(i)) return Promise.resolve(state.blobs.get(i));
   if (state.pending.has(i)) return state.pending.get(i);
 
+  const generation = state.generation;
+  const controller = new AbortController();
+  state.controllers.add(controller);
+  const timeout = setTimeout(() => controller.abort(), 35000);
   const job = (async () => {
-    const res = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: state.chunks[i],
-        engine: el.engine.value,
-        voice: el.voice.value,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'สร้างเสียงไม่สำเร็จ');
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST', signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({text: state.chunks[i], engine: el.engine.value, voice: el.voice.value}),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'สร้างเสียงไม่สำเร็จ');
+      }
+      const blob = await res.blob();
+      if (generation !== state.generation) return null;
+      if (!blob.size) throw new Error('บริการเสียงส่งไฟล์ว่าง กรุณาลองใหม่');
+      const url = URL.createObjectURL(blob);
+      state.blobs.set(i, url);
+      return url;
+    } finally {
+      clearTimeout(timeout);
+      state.controllers.delete(controller);
+      if (state.pending.get(i) === job) state.pending.delete(i);
     }
-    const url = URL.createObjectURL(await res.blob());
-    state.blobs.set(i, url);
-    state.pending.delete(i);
-    return url;
   })();
 
   state.pending.set(i, job);
@@ -186,13 +204,15 @@ function prefetch(from) {
 async function play() {
   if (state.idx >= state.chunks.length) return;
 
+  const ticket = ++state.playGeneration;
+  const index = state.idx;
   state.playing = true;
   el.play.textContent = '⏸';
   el.play.classList.add('loading');
 
   try {
-    const src = await fetchAudio(state.idx);
-    if (!state.playing) return;           // ผู้ใช้กดหยุดระหว่างรอโหลด
+    const src = await fetchAudio(index);
+    if (!state.playing || ticket !== state.playGeneration || !src) return; // ผู้ใช้กดหยุดระหว่างรอโหลด
 
     state.audio.src = src;
     state.audio.playbackRate = Number(el.speed.value);
@@ -201,16 +221,18 @@ async function play() {
     prefetch(state.idx);
     updateMediaSession();
   } catch (err) {
+    if (ticket !== state.playGeneration) return;
     el.play.classList.remove('loading');
-    if (err.name !== 'AbortError') {
+    {
       state.playing = false;
       el.play.textContent = '▶';
-      setStatus(err.message, true);
+      setStatus(err.name === 'AbortError' ? 'สร้างเสียงใช้เวลานานเกินไป กดเล่นเพื่อลองใหม่' : `${err.message} · กดเล่นเพื่อลองใหม่`, true);
     }
   }
 }
 
 function pause() {
+  state.playGeneration++;
   state.playing = false;
   state.audio.pause();
   el.play.textContent = '▶';
@@ -220,9 +242,12 @@ function pause() {
 function stop() {
   pause();
   state.audio.removeAttribute('src');
+  state.audio.load();
 }
 
 function setIndex(i) {
+  state.playGeneration++;
+  state.audio.pause();
   state.idx = Math.max(0, Math.min(i, state.chunks.length - 1));
 
   el.reader.querySelectorAll('p').forEach((p, n) => {
@@ -282,9 +307,9 @@ el.speed.oninput = () => {
   localStorage.setItem('speed', el.speed.value);
 };
 
-el.engine.onchange = async () => { clearBlobs(); await loadVoices(); };
+el.engine.onchange = async () => { stop(); clearBlobs(); await loadVoices(); };
 el.voice.onchange = () => {
-  clearBlobs();
+  stop(); clearBlobs();
   localStorage.setItem(`voice:${el.engine.value}`, el.voice.value);
 };
 

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ฟังนิยาย</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+<header class="bar">
+  <a class="brand" href="/#home" aria-label="Novelread หน้าแรก"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5.5C9 3.5 5 3.3 2.5 4.5v15c2.5-1.2 6.5-1 9.5 1 3-2 7-2.2 9.5-1v-15C19 3.3 15 3.5 12 5.5Z"/><path d="M12 5.5v15"/></svg><span>novelread</span></a>
+  <nav aria-label="เมนูหลัก">
+    <a href="/#home">ค้นพบ</a><a href="/#shelf">ชั้นหนังสือ</a><a href="/#writer">เขียนนิยาย</a><a href="/listen.html" aria-current="page">ฟังจากลิงก์</a>
+  </nav>
+  <a class="account-link" href="/#account">บัญชีของฉัน</a>
+</header>
+<section class="listen-intro" aria-labelledby="listen-heading">
+  <div class="intro-copy"><p class="eyebrow">ฟังจากลิงก์</p><h1 id="listen-heading">ให้นิยายเล่าต่อ</h1><p>วางลิงก์ตอนที่อยากฟัง แล้วเลือกเสียงและความเร็วที่เหมาะกับคุณ</p></div>
+  <form id="load-form" class="load">
+    <label for="url">ลิงก์ตอนนิยาย</label>
+    <div class="load-fields"><input id="url" type="url" placeholder="https://…" autocomplete="off" spellcheck="false" required><button type="submit" id="load-btn">ดึงเนื้อหา</button></div>
+    <div class="load-note"><span>เลือกย่อหน้าในเนื้อหาเพื่อเริ่มฟังตรงจุดนั้น</span><button id="settings-toggle" type="button" class="ghost" title="ตั้งค่า">ตั้งค่าเสียง</button></div>
+  </form>
+</section>
+
+<section id="settings" class="settings hidden">
+  <label>
+    <span>เครื่องเสียง</span>
+    <select id="engine"></select>
+  </label>
+  <label>
+    <span>เสียง</span>
+    <select id="voice"></select>
+  </label>
+  <label>
+    <span>ความเร็ว <b id="speed-val">1.00x</b></span>
+    <input id="speed" type="range" min="0.6" max="2" step="0.05" value="1">
+  </label>
+  <label>
+    <span>ตั้งเวลาปิด</span>
+    <select id="sleep">
+      <option value="0">ไม่ตั้ง</option>
+      <option value="15">15 นาที</option>
+      <option value="30">30 นาที</option>
+      <option value="45">45 นาที</option>
+      <option value="60">60 นาที</option>
+    </select>
+  </label>
+  <div class="settings-note" id="cache-info"></div>
+</section>
+
+<main id="main" tabindex="-1">
+  <div id="status" class="status" role="status" aria-live="polite">วางลิงก์ตอนนิยายด้านบนแล้วกดดึงเนื้อหา</div>
+  <h2 id="title" class="title hidden"></h2>
+  <div id="meta" class="meta hidden"></div>
+  <article id="reader" class="reader"></article>
+</main>
+
+<footer id="player" class="player hidden">
+  <div class="progress"><div id="progress-fill"></div></div>
+  <div class="controls">
+    <button id="prev" aria-label="ย่อหน้าก่อนหน้า" title="ย่อหน้าก่อนหน้า (←)">◀◀</button>
+    <button id="play" aria-label="เล่นหรือหยุดเสียง" class="primary" title="เล่น / หยุด (Space)">▶</button>
+    <button id="next" aria-label="ย่อหน้าถัดไป" title="ย่อหน้าถัดไป (→)">▶▶</button>
+    <div class="counter"><span id="pos">0</span> / <span id="total">0</span></div>
+    <div class="spacer"></div>
+    <button id="go-next-chapter" class="ghost hidden">ตอนถัดไป →</button>
+  </div>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

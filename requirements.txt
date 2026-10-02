@@ -7,3 +7,4 @@ lxml
 edge-tts
 playwright
 google-genai
+Pillow>=12.0,<13
