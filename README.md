@@ -52,7 +52,7 @@ node test_audio_client.cjs
 start.bat
 ```
 
-ครั้งแรกจะติดตั้งของที่จำเป็นให้เอง แล้วเปิดเบราว์เซอร์ที่ `http://127.0.0.1:8756`
+ครั้งแรกจะติดตั้ง Python และ Node.js packages ที่จำเป็นให้เอง จากนั้นรัน API ของแอปบน `127.0.0.1:8756` และเปิดเว็บ Next.js ที่ `http://127.0.0.1:3000` หน้าเว็บหลักใช้ Next.js; API ฝั่ง Python ยังเก็บข้อมูลและให้บริการอ่าน/เขียน รวมถึงเครื่องฟังลิงก์ที่ `/listen.html` ระหว่างที่ยังย้ายเครื่องมือนี้ไม่เสร็จ การเปิดพอร์ต API โดยตรงจะพาไปหน้า Next.js
 
 ถ้าอยากสั่งเอง:
 
@@ -61,6 +61,15 @@ python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python server.py
 ```
+
+เปิดอีกหน้าต่าง terminal เพื่อติดตั้งและรัน frontend:
+
+```bash
+npm install
+npm run dev
+```
+
+เปิด `http://127.0.0.1:3000` เพื่อใช้เว็บ Next.js ซึ่งดึงข้อมูลจาก API ที่พอร์ต `8756` ต้องมี Node.js 20.9 ขึ้นไป
 
 ## ปุ่มลัด
 

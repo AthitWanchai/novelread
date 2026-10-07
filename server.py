@@ -14,7 +14,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -61,8 +61,6 @@ CONFIG = load_config()
 app = FastAPI(title="เว็บฟังนิยายเสียง")
 from lib.platform import router as platform_router
 app.include_router(platform_router)
-from lib.covers import router as covers_router
-app.include_router(covers_router)
 from lib.covers import router as covers_router
 app.include_router(covers_router)
 
@@ -212,7 +210,7 @@ async def api_cache_size():
 
 @app.get("/")
 async def index():
-    return FileResponse(PUBLIC / "index.html")
+    return RedirectResponse("http://127.0.0.1:3000/", status_code=307)
 
 
 app.mount("/", StaticFiles(directory=PUBLIC), name="static")

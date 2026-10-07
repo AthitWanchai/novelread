@@ -1,8 +1,12 @@
 # สภาพแวดล้อม Python
 .venv/
+node_modules/
+.next/
+out/
 data/
 __pycache__/
 *.py[cod]
+*.tsbuildinfo
 
 # เนื้อหาและเสียงที่ดึงมาจากเว็บอื่น - ห้ามอัปขึ้น repo เด็ดขาด
 cache/

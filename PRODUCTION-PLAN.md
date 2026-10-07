@@ -1,7 +1,7 @@
 # Novelread 1.1 — แผนเปิดตัวพร้อมระบบเหรียญและขายตอน
 
-วันที่ 2 ตุลาคม 2026  
-สถานะ: แผนงานตามเงื่อนไขล่าสุด; ยังไม่ได้เปลี่ยนโค้ดหรือสร้างบริการ cloud
+ปรับแผนล่าสุด 6 ตุลาคม 2026  
+สถานะ: เริ่มย้าย frontend ไป Next.js แล้ว; backend/ข้อมูล local รุ่น 1.0 ยังทำงานเดิม และยังไม่ได้สร้างบริการ cloud
 
 ## เป้าหมายและขอบเขต
 
@@ -14,6 +14,73 @@
 **หลังเปิด — ขยายชุมชน/บริการ:** คอมเมนต์ รีวิว ติดตาม/แจ้งเตือน, TTS และ moderation เพิ่มตามความต้องการและกำลังดูแล ไม่ใช่เงื่อนไขที่ต้องมีหากไม่อยู่ใน MVP.
 
 ## แนวทางระบบที่แนะนำ
+
+### ข้อตัดสินใจด้านเว็บและ SEO
+
+เลือก **Next.js App Router + React + TypeScript** เป็น stack ของเว็บรุ่น 1.1 เพราะหน้ารายละเอียดเรื่องและตอนต้องส่ง HTML ที่มีเนื้อหาและ metadata พร้อมให้ crawler อ่านได้ตั้งแต่ response แรก ไม่ใช้ React + Vite เป็นเว็บหลักของรุ่นนี้ และยังไม่ใช้ TanStack Start เพื่อไม่เพิ่ม router/server stack อีกชุดโดยไม่จำเป็น
+
+โครงเว็บใหม่อยู่ใน `web/` แยกจาก FastAPI และ `public/` ของรุ่น 1.0 หน้า public ของเรื่องและตอนใช้ Server Components และ server-side data access/route handlers ตามความเหมาะสม; หน้าชั้นหนังสือ เขียนนิยาย และบัญชีใช้ client interactivity เฉพาะส่วนที่ต้องใช้เท่านั้น ระยะแรกให้ Next.js เรียก API FastAPI เดิมผ่าน server-side adapter เพื่อย้ายหน้าได้เป็นช่วง ๆ โดยไม่เปลี่ยนพฤติกรรม API พร้อมกัน เมื่อ schema และข้อมูล Supabase ผ่านแผน M3/M7 จึงสลับ adapter ไป Supabase และค่อยตัดสินใจปิด FastAPI หลังยืนยันว่า TTS และ URL extraction ไม่อยู่ในขอบเขตเปิดตัว
+
+**สถานะ migration ใน repo:** สร้าง Next.js App Router ใน `web/` แล้ว; หน้า `/`, `/novel/[id]/[slug]` และหน้าอ่านตอน render ฝั่ง server จาก FastAPI เดิม พร้อม metadata ต่อเรื่อง/ตอน, robots, sitemap และ same-origin API proxy. หน้า account, shelf และ writer มี route React รุ่นแรก; หน้าฟังจากลิงก์ยังอยู่ในระบบ 1.0 และยังไม่ใช่การ cutover เต็มระบบ.
+
+**ข้อกำหนด SEO สำหรับ public pages:**
+
+- ใช้ URL path ที่คงที่และแชร์ได้ เช่น `/novel/[slug]` และ `/novel/[slug]/[chapterSlug]`; ไม่ใช้ hash route สำหรับหน้าที่ต้องการให้ค้นพบ
+- สร้าง title, description, canonical, Open Graph และ metadata ของแต่ละเรื่อง/ตอนบน server จากข้อมูลจริง
+- ใส่เนื้อหาเรื่องย่อและเนื้อหาตอนที่เผยแพร่และเปิดอ่านใน HTML ตั้งต้น; เรื่อง draft/เนื้อหาที่ต้องล็อกอินหรือปลดล็อกต้องไม่รั่วใน HTML, metadata, sitemap หรือ cache สาธารณะ
+- สร้าง `sitemap.xml` จากเรื่องและตอนที่เผยแพร่, `robots.txt` และหน้า 404/redirect ที่ชัดเจน; redirect URL hash เดิมเท่าที่ระบบเว็บรองรับ และรักษา slug/canonical ไม่ให้เกิด URL ซ้ำ
+- ใส่ structured data เฉพาะชนิดที่ตรงกับเนื้อหาและข้อกำหนด Search ของ Google โดยไม่สร้าง rating หรือข้อมูลประกอบที่ไม่มีจริง
+- ตรวจ source HTML โดยไม่รัน JavaScript, metadata ต่อ URL, canonical, sitemap, การกัน draft/paywall และ deep link ก่อนเปิดจริง; SEO ช่วยให้ crawler อ่านหน้าได้ แต่ไม่รับประกันอันดับหรือการ index
+
+**ลำดับย้ายที่เลือก:** (1) สร้าง Next.js shell และ design tokens โดยยังเก็บระบบ 1.0 ให้รันได้ (2) ย้ายหน้า public และ deep links พร้อม SEO metadata โดยอ่านข้อมูลผ่าน adapter ของ API เดิม (3) ย้าย reader, shelf, auth และ writer พร้อมรักษา progress/draft (4) ย้ายฐานข้อมูลและรูปปกตาม M3/M7 แล้วเปลี่ยน adapter (5) เปิด staging ตรวจ SEO, สิทธิ์ และ rollback ก่อน cutover
+
+#### รูปแบบโครงสร้างโปรเจกต์ Next.js ที่เสนอ
+
+```text
+novelread/
+├─ app/                              # Next.js App Router และหน้าที่ render บน server
+│  ├─ (public)/
+│  │  ├─ page.tsx                    # หน้าแรก/ค้นพบนิยาย
+│  │  └─ novel/[slug]/
+│  │     ├─ page.tsx                 # รายละเอียดเรื่อง + generateMetadata
+│  │     └─ [chapterSlug]/page.tsx   # อ่านตอน + metadata ตามตอน
+│  ├─ (reader)/
+│  │  └─ shelf/page.tsx              # ชั้นหนังสือ (ต้องเข้าสู่ระบบ)
+│  ├─ (writer)/
+│  │  └─ studio/                     # หน้าจัดการเรื่องและเขียนตอน
+│  ├─ (account)/                     # เข้าสู่ระบบ/สมัคร/โปรไฟล์
+│  ├─ api/                            # Next.js route handlers ถ้าต้องทำ server-only/BFF
+│  ├─ layout.tsx                      # Root layout, fonts, metadata พื้นฐาน
+│  ├─ robots.ts                       # กติกา crawler
+│  └─ sitemap.ts                      # sitemap จากเรื่อง/ตอนที่เผยแพร่
+├─ components/
+│  ├─ ui/                             # ปุ่ม ฟอร์ม dialog และ primitive ที่ใช้ร่วมกัน
+│  ├─ navigation/                    # Header, mobile navigation
+│  ├─ novel/                          # NovelCard, NovelGrid, Cover, ChapterList
+│  ├─ reader/                         # Reader content, progress, reading settings
+│  └─ writer/                         # ฟอร์มเรื่อง/ตอน และเครื่องมือผู้เขียน
+├─ features/                          # use-cases ฝั่ง client แยกตามโดเมน
+│  ├─ auth/  ├─ library/  ├─ reader/  └─ writer/
+├─ lib/
+│  ├─ api/                            # server API client และ FastAPI adapter ระยะแรก
+│  ├─ auth/                           # session และ helpers ตรวจสิทธิ์
+│  ├─ seo/                            # canonical, metadata, structured data
+│  ├─ schemas/                        # validation/types ของข้อมูลที่ API ส่งกลับ
+│  └─ utils/
+├─ public/                            # favicon, OG defaults และไฟล์ static
+├─ styles/                            # global styles, tokens, typography
+├─ tests/                             # unit/integration/e2e ตามขอบเขตที่ย้าย
+├─ .env.example                       # ชื่อตัวแปรเท่านั้น ห้ามใส่ secret จริง
+├─ next.config.ts
+├─ package.json
+└─ tsconfig.json
+
+# ระหว่าง migration ยังเก็บ backend ปัจจุบันไว้:
+server.py + lib/                      # FastAPI, TTS และ APIs ของ Novelread 1.0
+data/                                 # SQLite/ปกเดิม; ไม่ย้ายหรือลบอัตโนมัติ
+```
+
+ขอบเขตสำคัญ: route page เป็น Server Component เป็นค่าเริ่มต้น; ย้ายเฉพาะ interaction ที่ต้องใช้ state/browser API ไป client component. `features/` ถือกติกา use-case และ `components/` ถือ UI ที่ใช้ซ้ำ; `lib/api/` เป็นจุดเดียวที่รู้ว่า backend ระยะนั้นคือ FastAPI หรือ Supabase. ห้าม import secret/service-role credentials เข้า client bundle และห้ามให้ metadata, sitemap หรือ cache public อ่าน draft/ตอนที่ต้องปลดล็อก.
 
 ```text
 ผู้อ่าน/เจ้าของเรื่อง

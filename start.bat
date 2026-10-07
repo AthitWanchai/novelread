@@ -15,8 +15,17 @@ if errorlevel 1 (
     if errorlevel 1 goto failed
 )
 
-start "" http://127.0.0.1:8756
-.venv\Scripts\python.exe -X utf8 server.py
+if not exist "node_modules\next" (
+    echo กำลังติดตั้ง Next.js และ React...
+    npm install
+    if errorlevel 1 goto failed
+)
+
+powershell -NoProfile -Command "$ErrorActionPreference='SilentlyContinue'; try { Invoke-WebRequest 'http://127.0.0.1:8756/api/config' -TimeoutSec 2 | Out-Null; exit 0 } catch { Start-Process -FilePath '%~dp0.venv\Scripts\python.exe' -ArgumentList @('-X','utf8','server.py') -WorkingDirectory '%~dp0' -WindowStyle Hidden; exit 0 }"
+if errorlevel 1 goto failed
+
+start "" http://127.0.0.1:3000
+npm run dev -- --hostname 127.0.0.1 --port 3000
 
 pause
 exit /b
