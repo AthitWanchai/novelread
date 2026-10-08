@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { SiteHeader } from "@/components/navigation/site-header";
+import { SiteFooter } from "@/components/navigation/site-footer";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f5f7fb",
+  themeColor: "#09141e",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -25,9 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a className="skip-link" href="#main">ข้ามไปเนื้อหา</a>
         <SiteHeader />
         <main id="main">{children}</main>
-        <footer className="site-footer">
-          <div className="footer-inner"><span className="footer-brand">novel<span>read</span></span><span>พื้นที่สำหรับนักอ่านและนักเขียน</span></div>
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   );

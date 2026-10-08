@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 def same_origin(request: Request):
@@ -165,6 +165,21 @@ def create_book(data:Book,current=Depends(required)):
     with connect() as db:
         uid=db.execute("INSERT INTO books(owner,title,pen_name,summary,category,tags,cover,rating,status,updated) VALUES(?,?,?,?,?,?,?,?,?,?)",(current["id"],*data.model_dump().values(),time.time())).lastrowid
     return {"id":uid}
+
+@router.get("/authors/{author_id}")
+def public_author(author_id:int, offset:int=Query(0, ge=0), limit:int=Query(12, ge=1, le=48), status:str=""):
+    # Public identity comes from the stable owner key, never a pen-name match.
+    with connect() as db:
+        author = db.execute("SELECT id,name FROM users WHERE id=?", (author_id,)).fetchone()
+        if not author: fail(404,"ไม่พบนักเขียน")
+        where = "b.owner=? AND EXISTS (SELECT 1 FROM chapters c WHERE c.book_id=b.id AND c.published=1)"
+        args = [author_id]
+        if status:
+            where += " AND b.status=?"
+            args.append(status)
+        total = db.execute(f"SELECT COUNT(*) FROM books b WHERE {where}", args).fetchone()[0]
+        rows = db.execute(f"SELECT b.*, (SELECT COUNT(*) FROM chapters c WHERE c.book_id=b.id AND c.published=1) chapter_count FROM books b WHERE {where} ORDER BY b.updated DESC,b.id DESC LIMIT ? OFFSET ?", [*args,limit,offset]).fetchall()
+    return {"author":dict(author),"books":[dict(row) for row in rows],"total":total,"next_offset":offset+len(rows) if offset+len(rows)<total else None}
 
 @router.put("/books/{bid}")
 def update_book(bid:int,data:Book,current=Depends(required)):

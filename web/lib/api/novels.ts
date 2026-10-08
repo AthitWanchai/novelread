@@ -17,6 +17,7 @@ export type ChapterSummary = {
 
 export type Novel = {
   id: number;
+  owner: number | null;
   title: string;
   pen_name: string;
   summary: string;
@@ -80,4 +81,10 @@ export function coverUrl(path: string) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
   return `${origin}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
+export type AuthorPage = { author: { id: number; name: string }; books: Novel[]; total: number; next_offset: number | null };
+export async function getAuthor(id: string): Promise<AuthorPage | null> {
+  try { return await api<AuthorPage>(`/authors/${encodeURIComponent(id)}`); }
+  catch (error) { if (error instanceof NovelApiError && error.status === 404) return null; throw error; }
 }

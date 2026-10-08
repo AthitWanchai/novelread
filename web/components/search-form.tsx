@@ -13,11 +13,13 @@ export function SearchForm({ initialQuery = "", category, status, categories }: 
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [pending, startTransition] = useTransition();
+  const [selectedCategory, setSelectedCategory] = useState(category);
+  const [selectedStatus, setSelectedStatus] = useState(status);
   const categoryRef = useRef(category);
   const statusRef = useRef(status);
 
-  useEffect(() => { categoryRef.current = category; }, [category]);
-  useEffect(() => { statusRef.current = status; }, [status]);
+  useEffect(() => { categoryRef.current = category; setSelectedCategory(category); }, [category]);
+  useEffect(() => { statusRef.current = status; setSelectedStatus(status); }, [status]);
 
   useEffect(() => setQuery(initialQuery), [initialQuery]);
 
@@ -34,8 +36,9 @@ export function SearchForm({ initialQuery = "", category, status, categories }: 
   return <div className="search-group" role="search">
     <form className="hero-search" onSubmit={search}>
       <label className="search-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.5 4.5" /></svg><Input name="q" value={query} onChange={event => setQuery(event.target.value)} placeholder="ชื่อเรื่อง นักเขียน หรือแนวที่ชอบ" aria-label="ค้นหานิยาย" /></label>
-      <ActionButton className="search-button" type="submit" disabled={pending}>{pending ? <><LoaderCircle aria-hidden="true" className="filter-spinner" /> กำลังค้นหา…</> : <>ค้นหา <span aria-hidden="true">↗</span></>}</ActionButton>
+      <ActionButton className="search-button" type="submit" disabled={pending}>{pending ? <><LoaderCircle aria-hidden="true" className="filter-spinner" /> กำลังค้นหา…</> : <>ค้นหา</>}</ActionButton>
+      <SearchFilters category={selectedCategory} status={selectedStatus} categories={categories}
+        onChange={next => { categoryRef.current = next.category; statusRef.current = next.status; setSelectedCategory(next.category); setSelectedStatus(next.status); }} />
     </form>
-    <SearchFilters category={category} status={status} categories={categories} onChange={next => { categoryRef.current = next.category; statusRef.current = next.status; }} />
   </div>;
 }

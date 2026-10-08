@@ -13,5 +13,5 @@ type EntranceProps = {
 export function Entrance({ children, className, delay = 0, as = "div", ...props }: EntranceProps) {
   const reduceMotion = useReducedMotion();
   const Component = as === "section" ? motion.section : motion.div;
-  return <Component className={className} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.32, delay, ease: [0.2, 0.7, 0.2, 1] }} {...props}>{children}</Component>;
+  return <Component className={className} initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay, ease: "easeOut" }} {...props}>{children}</Component>;
 }

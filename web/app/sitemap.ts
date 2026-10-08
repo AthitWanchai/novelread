@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const details = await Promise.all(novels.map(novel => getNovel(String(novel.id))));
   return [
     { url: base, changeFrequency: "daily", priority: 1 },
+    ...[...new Set(novels.map(novel => novel.owner).filter(Boolean))].map(id => ({ url: `${base}/author/${id}`, changeFrequency: "weekly" as const, priority: 0.6 })),
     ...novels.flatMap((novel, index) => {
       const detail = details[index];
       const novelPath = `/novel/${novel.id}/${slugify(novel.title)}`;

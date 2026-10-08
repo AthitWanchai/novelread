@@ -11,9 +11,9 @@ type SearchFiltersProps = {
 
 export function SearchFilters({ category, status, categories, onChange }: SearchFiltersProps) {
   return (
-    <div className="search-panel search-panel-filters">
+    <div className="search-panel search-panel-filters" role="group" aria-label="ตัวกรองการค้นหา">
       <div className="select-wrap">
-        <Select name="status" defaultValue={status || "all"} onValueChange={value => onChange({ category, status: value === "all" ? undefined : value })}>
+        <Select name="status" value={status || "all"} onValueChange={value => onChange({ category, status: value === "all" ? undefined : value })}>
           <SelectTrigger aria-label="สถานะนิยาย"><SelectValue placeholder="ทุกสถานะ" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกสถานะ</SelectItem>
@@ -23,7 +23,7 @@ export function SearchFilters({ category, status, categories, onChange }: Search
         </Select>
       </div>
       <div className="select-wrap category-select-wrap">
-        <Select name="category" defaultValue={category || "all"} onValueChange={value => onChange({ category: value === "all" ? undefined : value, status })}>
+        <Select name="category" value={category || "all"} onValueChange={value => onChange({ category: value === "all" ? undefined : value, status })}>
           <SelectTrigger aria-label="หมวดนิยาย"><SelectValue placeholder="ทุกหมวด" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">ทุกหมวด</SelectItem>

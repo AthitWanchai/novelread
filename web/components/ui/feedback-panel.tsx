@@ -18,7 +18,7 @@ export function FeedbackPanel({ title, children, icon, variant = "empty", classN
     </Card>;
   }
 
-  return <Card className={`empty-library ${className}`.trim()}>
+  return <Card className={`empty-library ${className}`.trim()} role={role}>
     {icon ? <span className="empty-mark" aria-hidden="true">{icon}</span> : null}
     {title ? <h3>{title}</h3> : null}
     {children ? <div className="feedback-copy">{children}</div> : null}

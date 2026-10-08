@@ -47,17 +47,17 @@ export function WriterDashboard() {
 
   if (busy && !account) return <div className="content-shell"><FeedbackPanel>กำลังโหลดพื้นที่นักเขียน…</FeedbackPanel></div>;
   if (error && !account) return <div className="content-shell"><FeedbackPanel variant="notice" role="alert" title="โหลดพื้นที่นักเขียนไม่สำเร็จ"><p>{error}</p></FeedbackPanel></div>;
-  if (!account) return <div className="content-shell"><FeedbackPanel title="เข้าสู่ระบบเพื่อเริ่มเขียนนิยาย"><p>ผลงานและฉบับร่างจะบันทึกไว้ในบัญชีของคุณ</p><ActionLink href="/account" className="hero-cta">เข้าสู่ระบบ <span>→</span></ActionLink></FeedbackPanel></div>;
+  if (!account) return <div className="content-shell"><FeedbackPanel title="เข้าสู่ระบบเพื่อเริ่มเขียนนิยาย"><p>ผลงานและฉบับร่างจะบันทึกไว้ในบัญชีของคุณ</p><ActionLink href="/account" className="hero-cta">เข้าสู่ระบบ</ActionLink></FeedbackPanel></div>;
 
   return <div className="content-shell">
-    <SectionHeading as="h1" eyebrow="YOUR WRITING DESK" title="พื้นที่นักเขียน" action={<ActionButton className="search-button new-story-button" onClick={() => { setCreating(!creating); setError(""); }}>＋ สร้างเรื่องใหม่</ActionButton>} />
+    <SectionHeading className="writer-dashboard-heading" as="h1" eyebrow="YOUR WRITING DESK" title="พื้นที่นักเขียน" action={<ActionButton className="search-button new-story-button" onClick={() => { setCreating(!creating); setError(""); }}>＋ สร้างเรื่องใหม่</ActionButton>} />
     <p className="studio-intro">จัดการนิยาย เขียนตอนใหม่ และเผยแพร่เมื่อพร้อม</p>
     {creating && <Card asChild className="writer-panel"><form onSubmit={create}><div className="writer-panel-heading"><h2>เริ่มเรื่องใหม่</h2><Button variant="ghost" type="button" className="text-button" onClick={() => setCreating(false)}>ปิด</Button></div>
       <BookFields value={form} onChange={setForm} defaultPenName={account.name} />
-      {error && <p className="form-error" role="alert">{error}</p>}<ActionButton type="submit" className="search-button" disabled={busy}>สร้างนิยาย <span>→</span></ActionButton>
+      {error && <p className="form-error" role="alert">{error}</p>}<ActionButton type="submit" className="search-button" disabled={busy}>สร้างนิยาย</ActionButton>
     </form></Card>}
     {error && !creating && <p className="form-error" role="alert">{error}</p>}
-    {books.length ? <div className="novel-grid writer-grid">{books.map(book => <article className="writer-item" key={book.id}><NovelCard novel={book} /><Link className="writer-edit-link" href={`/studio/${book.id}`}>จัดการเรื่องและตอน ↗</Link></article>)}</div> : !creating && <FeedbackPanel icon="✎" title="เรื่องแรกของคุณเริ่มตรงนี้"><p>ตั้งชื่อเรื่อง เพิ่มคำโปรย แล้วเขียนตอนแรกได้เลย</p><ActionButton className="hero-cta" onClick={() => setCreating(true)}>สร้างนิยาย <span>→</span></ActionButton></FeedbackPanel>}
+    {books.length ? <div className="novel-grid writer-grid">{books.map(book => <article className="writer-item" key={book.id}><NovelCard novel={book} /><Link className="writer-edit-link" href={`/studio/${book.id}`}>จัดการเรื่องและตอน</Link></article>)}</div> : !creating && <FeedbackPanel icon="✎" title="เรื่องแรกของคุณเริ่มตรงนี้"><p>ตั้งชื่อเรื่อง เพิ่มคำโปรย แล้วเขียนตอนแรกได้เลย</p><ActionButton className="hero-cta" onClick={() => setCreating(true)}>สร้างนิยาย</ActionButton></FeedbackPanel>}
   </div>;
 }
 
@@ -145,8 +145,8 @@ export function WriterEditor({ id }: { id: string }) {
 
   if (busy) return <div className="content-shell"><FeedbackPanel>กำลังเปิดต้นฉบับ…</FeedbackPanel></div>;
   if (error && !account) return <div className="content-shell"><FeedbackPanel variant="notice" role="alert" title="เปิดพื้นที่เขียนนิยายไม่สำเร็จ"><p>{error}</p></FeedbackPanel></div>;
-  if (!account) return <div className="content-shell"><FeedbackPanel title="เข้าสู่ระบบเพื่อเขียนนิยาย"><ActionLink href="/account" className="hero-cta">เข้าสู่ระบบ <span>→</span></ActionLink></FeedbackPanel></div>;
-  if (!isNew && (!book || !book.is_owner)) return <div className="content-shell"><FeedbackPanel title={error || "ไม่พบเรื่องที่แก้ไขได้"}><ActionLink href="/studio" className="hero-cta">กลับพื้นที่นักเขียน <span>→</span></ActionLink></FeedbackPanel></div>;
+  if (!account) return <div className="content-shell"><FeedbackPanel title="เข้าสู่ระบบเพื่อเขียนนิยาย"><ActionLink href="/account" className="hero-cta">เข้าสู่ระบบ</ActionLink></FeedbackPanel></div>;
+  if (!isNew && (!book || !book.is_owner)) return <div className="content-shell"><FeedbackPanel title={error || "ไม่พบเรื่องที่แก้ไขได้"}><ActionLink href="/studio" className="hero-cta">กลับพื้นที่นักเขียน</ActionLink></FeedbackPanel></div>;
 
   return <div className="content-shell"><Link className="back-link" href="/studio">← กลับพื้นที่นักเขียน</Link>
     <SectionHeading className="studio-title" as="h1" eyebrow="WRITER STUDIO" title={isNew ? "สร้างนิยายใหม่" : book?.title} />

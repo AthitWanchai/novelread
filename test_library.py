@@ -46,6 +46,26 @@ class LibraryFlow(unittest.TestCase):
         self.assertEqual(len(self.guest.get("/api/library/books?q=เวทมนตร์&category=แฟนตาซี").json()),1)
         self.assertEqual(self.guest.get(f"/api/library/chapters/{cid}").json()["content"],"เผยแพร่แล้ว")
 
+    def test_public_author_pagination_and_privacy(self):
+        author_id = self.author.get("/api/library/me").json()["id"]
+        # The initial book is a draft and must not leak into a public profile.
+        self.assertEqual(self.guest.get(f"/api/library/authors/{author_id}").json()["total"], 0)
+        for index in range(13):
+            bid = self.author.post("/api/library/books", json={**self.book, "title":f"Published {index}", "status":"จบแล้ว" if index == 0 else "กำลังเขียน"}).json()["id"]
+            self.author.post(f"/api/library/books/{bid}/chapters", json={"title":"Public", "content":"Text", "published":True})
+        other = self.reader.post("/api/library/books", json=self.book).json()["id"]
+        self.reader.post(f"/api/library/books/{other}/chapters", json={"title":"Other owner", "content":"Text", "published":True})
+        first = self.guest.get(f"/api/library/authors/{author_id}").json()
+        self.assertEqual(set(first["author"]), {"id", "name"})
+        self.assertEqual((first["total"], len(first["books"]), first["next_offset"]), (13, 12, 12))
+        second = self.guest.get(f"/api/library/authors/{author_id}?offset=12").json()
+        self.assertEqual(len(second["books"]), 1)
+        self.assertIsNone(second["next_offset"])
+        self.assertFalse({b["id"] for b in first["books"]} & {b["id"] for b in second["books"]})
+        self.assertEqual(self.guest.get(f"/api/library/authors/{author_id}?status=จบแล้ว").json()["total"], 1)
+        self.assertEqual(self.guest.get(f"/api/library/authors/{author_id}?offset=-1").status_code, 422)
+        self.assertEqual(self.guest.get("/api/library/authors/999999").status_code, 404)
+
     def test_ownership_and_login(self):
         cid=self.create_chapter()
         self.assertEqual(self.reader.put(f"/api/library/books/{self.bid}",json=self.book).status_code,403)

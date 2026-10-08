@@ -46,7 +46,7 @@ export function AccountScreen() {
     <div className="content-shell"><Card asChild className="account-card"><section>
       <span className="section-kicker">YOUR NOVELREAD</span><h1>ยินดีต้อนรับ, {account.name}</h1>
       <p className="account-email">{account.email}</p><p className="detail-summary">บัญชีของคุณพร้อมบันทึกชั้นหนังสือและผลงานไว้ที่นี่</p>
-      <div className="account-actions"><ActionLink className="hero-cta" href="/shelf">ไปชั้นหนังสือ <span>→</span></ActionLink><Link className="plain-link" href="/studio">พื้นที่นักเขียน</Link><Button variant="ghost" className="text-button" type="button" onClick={logout} disabled={busy}>ออกจากระบบ</Button></div>
+      <div className="account-actions"><ActionLink className="hero-cta" href="/shelf">ไปชั้นหนังสือ</ActionLink><Link className="plain-link" href="/studio">พื้นที่นักเขียน</Link><Button variant="ghost" className="text-button" type="button" onClick={logout} disabled={busy}>ออกจากระบบ</Button></div>
       {error && <p className="form-error" role="alert">{error}</p>}
     </section></Card></div>
   );
@@ -60,7 +60,7 @@ export function AccountScreen() {
         <div className="account-field"><Label htmlFor="account-email">อีเมล</Label><Input id="account-email" name="email" type="email" required maxLength={254} autoComplete="email" /></div>
         <div className="account-field"><Label htmlFor="account-password">รหัสผ่าน</Label><Input id="account-password" name="password" type="password" required minLength={8} maxLength={128} autoComplete={register ? "new-password" : "current-password"} /></div>
         {error && <p className="form-error" role="alert">{error}</p>}
-        <ActionButton type="submit" className="search-button account-submit" disabled={busy}>{busy ? "กำลังดำเนินการ…" : register ? "สร้างบัญชี" : "เข้าสู่ระบบ"}<span>→</span></ActionButton>
+        <ActionButton type="submit" className="search-button account-submit" disabled={busy}>{busy ? "กำลังดำเนินการ…" : register ? "สร้างบัญชี" : "เข้าสู่ระบบ"}</ActionButton>
       </form>
       <Separator className="account-separator" />
       <p className="account-switch">{register ? "มีบัญชีแล้ว?" : "ยังไม่มีบัญชี?"} <Button variant="ghost" type="button" className="text-button" onClick={() => { setRegister(!register); setError(""); }}>{register ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}</Button></p>
