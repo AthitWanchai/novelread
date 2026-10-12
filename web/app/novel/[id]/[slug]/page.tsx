@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { coverUrl, getNovel, listNovels, slugify } from "@/lib/api/novels";
+import { List } from "lucide-react";
 import { AuthorLink } from "@/components/novel/author-link";
 import { NovelShelf } from "@/components/novel/novel-shelf";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { ActionLink } from "@/components/ui/action-link";
 import { CoverImage } from "@/components/novel/cover-image";
+import { StoryBackdrop } from "@/components/novel/story-backdrop";
+import { novelBackdrop } from "@/lib/presentation/novel-art";
 
 type Props = { params: Promise<{ id: string; slug: string }> };
 
@@ -31,19 +34,23 @@ export default async function NovelPage({ params }: Props) {
   const chapters = novel.chapters ?? [];
   const related = (await listNovels({ category: novel.category }).catch(() => [])).filter(book => book.id !== novel.id && book.owner !== novel.owner).slice(0, 6);
   return (
-    <div className="content-shell">
-      <Link className="back-link" href="/">← กลับไปค้นพบนิยาย</Link>
-      <article className="novel-detail">
-        <div className="detail-cover">
+    <div className="content-shell novel-page">
+      <nav className="breadcrumbs" aria-label="เส้นทางหน้า"><Link href="/">หน้าแรก</Link><span aria-hidden="true">/</span><Link href={`/?category=${encodeURIComponent(novel.category)}`}>{novel.category}</Link><span aria-hidden="true">/</span><span aria-current="page">{novel.title}</span></nav>
+      <article className="novel-detail novel-detail-hero">
+        <StoryBackdrop src={novelBackdrop(novel)} />
+        <div className="detail-cover-wrap"><div className="detail-cover">
           <CoverImage src={coverUrl(novel.cover)} alt={`ปกเรื่อง ${novel.title}`} title={novel.title} category={novel.category} tone={novel.id % 4} sizes="(max-width: 480px) 110px, (max-width: 740px) 145px, 220px" className="detail-placeholder" />
-        </div>
+        </div></div>
         <div className="detail-copy">
-          <span className="novel-category">{novel.category}</span>
+          <span className="section-kicker">{novel.category} · NOVELREAD</span>
           <h1>{novel.title}</h1>
           <p className="detail-author">โดย <AuthorLink id={novel.owner} name={novel.pen_name} /></p>
           <div className="detail-badges"><span>{novel.status}</span><span>{novel.rating}</span><span>{chapters.length} ตอน</span></div>
-          <p className="detail-summary">{novel.summary?.slice(0, 180) || "เรื่องราวกำลังรอให้คุณเปิดอ่าน"}</p>
+          <p className="detail-summary">{novel.summary || "เรื่องราวกำลังรอให้คุณเปิดอ่าน"}</p>
+        </div>
+        <div className="detail-actions">
           {chapters[0] && <ActionLink className="hero-cta detail-cta" href={`/novel/${novel.id}/${slugify(novel.title)}/chapter/${chapters[0].id}/${slugify(chapters[0].title)}`}>เริ่มอ่านตอนแรก <span aria-hidden="true">→</span></ActionLink>}
+          <ActionLink className="detail-contents-link" tone="secondary" href="#chapters"><List aria-hidden="true" /> ดูสารบัญ</ActionLink>
         </div>
       </article>
       <section className="synopsis"><h2>เรื่องย่อ</h2><p>{novel.summary || "นักเขียนยังไม่ได้เพิ่มเรื่องย่อ"}</p></section>

@@ -27,12 +27,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
     connected = false;
   }
 
-  const latest = novels;
-  const completed = novels.filter(novel => novel.status === "จบแล้ว");
+  const spotlight = novels.slice(0, 5);
+  const spotlightIds = new Set(spotlight.map(novel => novel.id));
+  const completed = novels.filter(novel => novel.status === "จบแล้ว" && !spotlightIds.has(novel.id)).slice(0, 4);
+  const completedIds = new Set(completed.map(novel => novel.id));
+  const unassigned = novels.filter(novel => !spotlightIds.has(novel.id) && !completedIds.has(novel.id));
+  const latest = unassigned.slice(0, 8);
+  const latestIds = new Set(latest.map(novel => novel.id));
+  const categoryNovels = unassigned.filter(novel => !latestIds.has(novel.id));
 
   return (
     <div className="page-shell home-page">
-      {!hasFilters && connected && <SpotlightCarousel novels={novels} />}
+      {!hasFilters && connected && <SpotlightCarousel novels={spotlight} />}
       <Entrance as="section" className="discovery-toolbar" id="discover">
         {hasFilters && <h1>ค้นหานิยาย</h1>}
         <SearchForm initialQuery={filters.q} category={filters.category ?? queryCategory} status={filters.status} categories={categories} />
@@ -52,7 +58,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
           <>
             <ContinueReading />
             {latest.length > 0 && <NovelShelf title="อัปเดตล่าสุด" novels={latest} />}
-            <CategoryBrowser novels={novels} />
+            <CategoryBrowser novels={categoryNovels} />
             {completed.length > 0 && <section className="completed-section"><SectionHeading eyebrow="อ่านได้ครบทุกตอน" title="จบแล้ว อ่านได้ยาว ๆ" /><div className="completed-grid">{completed.slice(0, 4).map(novel => <NovelCard key={novel.id} novel={novel} featured />)}</div></section>}
           </>
         )}
