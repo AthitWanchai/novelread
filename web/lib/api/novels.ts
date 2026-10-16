@@ -1,4 +1,7 @@
+import { handleSupabaseLibraryRequest } from "@/lib/api/supabase-library";
+
 const origin = (process.env.FASTAPI_ORIGIN ?? "http://127.0.0.1:8756").replace(/\/$/, "");
+const localAppOrigin = `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
 
 class NovelApiError extends Error {
   constructor(public readonly status: number) {
@@ -17,7 +20,7 @@ export type ChapterSummary = {
 
 export type Novel = {
   id: number;
-  owner: number | null;
+  owner: number | string | null;
   title: string;
   pen_name: string;
   summary: string;
@@ -39,7 +42,24 @@ export type Chapter = ChapterSummary & {
 };
 
 async function api<T>(path: string): Promise<T> {
-  const response = await fetch(`${origin}/api/library${path}`, { cache: "no-store" });
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_ANON_KEY) {
+    const url = new URL(path, "http://novelread.local");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const result = await handleSupabaseLibraryRequest("GET", segments, url.searchParams, undefined);
+    if (result.status !== 200) throw new NovelApiError(result.status);
+    return result.body as T;
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${origin}/api/library${path}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(800),
+    });
+  } catch {
+    response = await fetch(`${localAppOrigin}/api/library${path}`, {
+      cache: "no-store",
+    });
+  }
   if (!response.ok) throw new NovelApiError(response.status);
   return response.json() as Promise<T>;
 }
@@ -80,10 +100,11 @@ export function slugify(value: string) {
 export function coverUrl(path: string) {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("/api/library/")) return path;
   return `${origin}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-export type AuthorPage = { author: { id: number; name: string }; books: Novel[]; total: number; next_offset: number | null };
+export type AuthorPage = { author: { id: number | string; name: string }; books: Novel[]; total: number; next_offset: number | null };
 export async function getAuthor(id: string): Promise<AuthorPage | null> {
   try { return await api<AuthorPage>(`/authors/${encodeURIComponent(id)}`); }
   catch (error) { if (error instanceof NovelApiError && error.status === 404) return null; throw error; }

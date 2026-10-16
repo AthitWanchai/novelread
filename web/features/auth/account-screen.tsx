@@ -17,18 +17,23 @@ export function AccountScreen() {
   const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     libraryRequest<ReaderAccount | null>("/me").then(setAccount).catch(e => setError(e.message)).finally(() => setLoading(false));
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError("");
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
     const data = new FormData(event.currentTarget);
     try {
-      const result = await libraryRequest<ReaderAccount>(register ? "/register" : "/login", "POST", {
+      const result = await libraryRequest<ReaderAccount & { confirmation_required?: boolean }>(register ? "/register" : "/login", "POST", {
         email: data.get("email"), password: data.get("password"), name: data.get("name") ?? "",
       });
+      if (register && result.confirmation_required) {
+        setNotice("สมัครเรียบร้อยแล้ว กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ");
+        return;
+      }
       setAccount(result);
     } catch (e) { setError(e instanceof Error ? e.message : "เข้าสู่ระบบไม่ได้"); }
     finally { setBusy(false); }
@@ -60,6 +65,7 @@ export function AccountScreen() {
         <div className="account-field"><Label htmlFor="account-email">อีเมล</Label><Input id="account-email" name="email" type="email" required maxLength={254} autoComplete="email" /></div>
         <div className="account-field"><Label htmlFor="account-password">รหัสผ่าน</Label><Input id="account-password" name="password" type="password" required minLength={8} maxLength={128} autoComplete={register ? "new-password" : "current-password"} /></div>
         {error && <p className="form-error" role="alert">{error}</p>}
+        {notice && <p role="status">{notice}</p>}
         <ActionButton type="submit" className="search-button account-submit" disabled={busy}>{busy ? "กำลังดำเนินการ…" : register ? "สร้างบัญชี" : "เข้าสู่ระบบ"}</ActionButton>
       </form>
       <Separator className="account-separator" />

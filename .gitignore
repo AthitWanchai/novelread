@@ -16,7 +16,12 @@ samples/
 
 # ค่าส่วนตัว / คีย์
 .env
+.env.local
+.env.*.local
+web/.env.local
+web/.env.*.local
 config.local.json
+data/supabase-import.json
 
 # ค่าเฉพาะเครื่อง (มี path แบบเต็มของเครื่องตัวเอง)
 .claude/

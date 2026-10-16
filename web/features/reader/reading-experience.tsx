@@ -23,7 +23,7 @@ export function ReadingExperience({ bookId, novelHref, chapterId, content, publi
   const [theme, setTheme] = useState("");
   const [followed, setFollowed] = useState(followedInitially);
   const [saveMessage, setSaveMessage] = useState("");
-  const storageKey = (userId?: number) => `read:${userId ? `user:${userId}` : "guest"}:${bookId}`;
+  const storageKey = (userId?: number | string) => `read:${userId ? `user:${userId}` : "guest"}:${bookId}`;
 
   const persist = useCallback(async (position: Position, user: ReaderAccount | null) => {
     positionRef.current = position;
