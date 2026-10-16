@@ -108,6 +108,28 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       await ensureProfile({ id: userId, name });
       return { status: 200, headers: { "set-cookie": sessionCookie(data.session.access_token) }, body: { id: userId, email, name } };
     }
+    if (s0 === "recover" && method === "POST") {
+      const email = String(parse().email ?? "").trim().toLowerCase();
+      if (!email.includes("@")) fail(400, "กรอกอีเมลให้ถูกต้อง");
+      const redirectTo = process.env.NEXT_PUBLIC_SITE_URL
+        ? `${process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/account?reset=1`
+        : undefined;
+      const { error } = await authClient().auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) fail(503, "ส่งอีเมลตั้งรหัสผ่านไม่สำเร็จ กรุณาลองใหม่");
+      return { status: 200, body: { ok: true } };
+    }
+    if (s0 === "reset-password" && method === "POST") {
+      const body = parse();
+      const token = String(body.access_token ?? "");
+      const password = String(body.password ?? "");
+      if (password.length < 8) fail(400, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
+      if (!token) fail(401, "ลิงก์ตั้งรหัสผ่านไม่ถูกต้อง");
+      const { data, error } = await authClient().auth.getUser(token);
+      if (error || !data.user) fail(401, "ลิงก์ตั้งรหัสผ่านหมดอายุหรือไม่ถูกต้อง");
+      const updated = await client.auth.admin.updateUserById(data.user.id, { password });
+      if (updated.error) fail(503, "ตั้งรหัสผ่านไม่สำเร็จ กรุณาลองใหม่");
+      return { status: 200, body: { ok: true } };
+    }
     if (s0 === "login" && method === "POST") {
       const body = parse(); const email = String(body.email ?? "").trim().toLowerCase(); const password = String(body.password ?? "");
       const { data, error } = await authClient().auth.signInWithPassword({ email, password });

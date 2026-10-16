@@ -15,12 +15,19 @@ export function AccountScreen() {
   const [account, setAccount] = useState<ReaderAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [register, setRegister] = useState(false);
+  const [recover, setRecover] = useState(false);
+  const [recoveryToken, setRecoveryToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
     libraryRequest<ReaderAccount | null>("/me").then(setAccount).catch(e => setError(e.message)).finally(() => setLoading(false));
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (hash.get("type") === "recovery" && hash.get("access_token")) {
+      setRecoveryToken(hash.get("access_token")!);
+      window.history.replaceState(null, "", "/account");
+    }
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -46,13 +53,45 @@ export function AccountScreen() {
     finally { setBusy(false); }
   }
 
+  async function recoverAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    const data = new FormData(event.currentTarget);
+    try {
+      await libraryRequest(recoveryToken ? "/reset-password" : "/recover", "POST", recoveryToken
+        ? { access_token: recoveryToken, password: data.get("password") }
+        : { email: data.get("email") });
+      if (recoveryToken) {
+        setRecoveryToken(""); setRecover(false);
+        setNotice("ตั้งรหัสผ่านแล้ว กรุณาเข้าสู่ระบบ");
+      } else {
+        setNotice("ส่งอีเมลสำหรับตั้งรหัสผ่านแล้ว กรุณาตรวจกล่องจดหมาย");
+      }
+    } catch (e) { setError(e instanceof Error ? e.message : "ดำเนินการไม่สำเร็จ"); }
+    finally { setBusy(false); }
+  }
+
   if (loading) return <div className="content-shell"><FeedbackPanel>กำลังตรวจสอบบัญชี…</FeedbackPanel></div>;
-  if (account) return (
+  if (account && !recoveryToken) return (
     <div className="content-shell"><Card asChild className="account-card"><section>
       <span className="section-kicker">YOUR NOVELREAD</span><h1>ยินดีต้อนรับ, {account.name}</h1>
       <p className="account-email">{account.email}</p><p className="detail-summary">บัญชีของคุณพร้อมบันทึกชั้นหนังสือและผลงานไว้ที่นี่</p>
       <div className="account-actions"><ActionLink className="hero-cta" href="/shelf">ไปชั้นหนังสือ</ActionLink><Link className="plain-link" href="/studio">พื้นที่นักเขียน</Link><Button variant="ghost" className="text-button" type="button" onClick={logout} disabled={busy}>ออกจากระบบ</Button></div>
       {error && <p className="form-error" role="alert">{error}</p>}
+    </section></Card></div>
+  );
+
+  if (recover || recoveryToken) return (
+    <div className="content-shell"><Card asChild className="account-card"><section>
+      <h1>{recoveryToken ? "ตั้งรหัสผ่านใหม่" : "ขอลิงก์ตั้งรหัสผ่าน"}</h1>
+      <form className="account-form" onSubmit={recoverAccount}>
+        <div className="account-field"><Label htmlFor="recovery-input">{recoveryToken ? "รหัสผ่านใหม่" : "อีเมล"}</Label>
+          <Input id="recovery-input" name={recoveryToken ? "password" : "email"} type={recoveryToken ? "password" : "email"} required minLength={recoveryToken ? 8 : undefined} autoComplete={recoveryToken ? "new-password" : "email"} />
+        </div>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {notice && <p role="status">{notice}</p>}
+        <ActionButton type="submit" className="search-button account-submit" disabled={busy}>{busy ? "กำลังดำเนินการ…" : recoveryToken ? "บันทึกรหัสผ่าน" : "ส่งลิงก์ทางอีเมล"}</ActionButton>
+      </form>
+      {!recoveryToken && <Button variant="ghost" type="button" className="text-button" onClick={() => { setRecover(false); setError(""); }}>กลับไปเข้าสู่ระบบ</Button>}
     </section></Card></div>
   );
 
@@ -70,6 +109,7 @@ export function AccountScreen() {
       </form>
       <Separator className="account-separator" />
       <p className="account-switch">{register ? "มีบัญชีแล้ว?" : "ยังไม่มีบัญชี?"} <Button variant="ghost" type="button" className="text-button" onClick={() => { setRegister(!register); setError(""); }}>{register ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}</Button></p>
+      {!register && <Button variant="ghost" type="button" className="text-button" onClick={() => { setRecover(true); setError(""); }}>ลืมรหัสผ่าน?</Button>}
     </section></Card></div>
   );
 }
