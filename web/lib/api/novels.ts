@@ -50,7 +50,7 @@ async function api<T>(path: string): Promise<T> {
   try {
     response = await fetch(`${origin}/api/library${path}`, {
       cache: "no-store",
-      signal: AbortSignal.timeout(800),
+      signal: AbortSignal.timeout(8000),
     });
   } catch {
     response = await fetch(`${localAppOrigin}/api/library${path}`, {
