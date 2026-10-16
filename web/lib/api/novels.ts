@@ -1,6 +1,7 @@
-import { handleSupabaseLibraryRequest } from "@/lib/api/supabase-library";
-
-const origin = (process.env.FASTAPI_ORIGIN ?? "http://127.0.0.1:8756").replace(/\/$/, "");
+const cloudConfigured = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_ANON_KEY);
+const origin = cloudConfigured
+  ? (process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "")
+  : (process.env.FASTAPI_ORIGIN ?? "http://127.0.0.1:8756").replace(/\/$/, "");
 const localAppOrigin = `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
 
 class NovelApiError extends Error {
@@ -42,12 +43,8 @@ export type Chapter = ChapterSummary & {
 };
 
 async function api<T>(path: string): Promise<T> {
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_ANON_KEY) {
-    const url = new URL(path, "http://novelread.local");
-    const segments = url.pathname.split("/").filter(Boolean);
-    const result = await handleSupabaseLibraryRequest("GET", segments, url.searchParams, undefined);
-    if (result.status !== 200) throw new NovelApiError(result.status);
-    return result.body as T;
+  if (cloudConfigured && process.env.NODE_ENV === "production" && !process.env.NEXT_PUBLIC_SITE_URL) {
+    throw new Error("NEXT_PUBLIC_SITE_URL is required for cloud deployment");
   }
   let response: Response;
   try {
