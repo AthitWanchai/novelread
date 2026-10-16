@@ -29,4 +29,4 @@ export async function libraryRequest<T>(path: string, method = "GET", body?: unk
   return result as T;
 }
 
-export type ReaderAccount = { id: number | string; email: string; name: string };
+export type ReaderAccount = { id: number | string; email: string; name: string; role?: "user" | "admin" };

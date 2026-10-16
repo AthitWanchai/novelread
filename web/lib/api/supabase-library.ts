@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 
-type User = { id: string; email: string; name: string };
+type User = { id: string; email: string; name: string; role: "user" | "admin" };
 type Book = Record<string, any>;
 type Result = { status: number; headers?: Record<string, string>; body: unknown; rawBuffer?: Buffer };
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
@@ -31,16 +31,21 @@ async function getUser(cookie?: string | null): Promise<User | null> {
   if (!token) return null;
   const { data: { user }, error } = await client.auth.getUser(token);
   if (error || !user) return null;
-  const { data: profile } = await client.from("profiles").select("id,name").eq("id", user.id).maybeSingle();
+  const { data: profile } = await client.from("profiles").select("id,name,role").eq("id", user.id).maybeSingle();
   if (!profile) return null;
-  return { id: user.id, email: user.email ?? "", name: profile.name };
+  return { id: user.id, email: user.email ?? "", name: profile.name, role: profile.role === "admin" ? "admin" : "user" };
 }
 async function requireUser(cookie?: string | null) {
   const user = await getUser(cookie);
   if (!user) fail(401, "กรุณาเข้าสู่ระบบก่อน");
   return user;
 }
-async function ensureProfile(user: User) {
+async function requireAdmin(cookie?: string | null) {
+  const user = await requireUser(cookie);
+  if (user.role !== "admin") fail(403, "ต้องใช้บัญชีผู้ดูแลระบบ");
+  return user;
+}
+async function ensureProfile(user: Pick<User, "id" | "name">) {
   const { data, error } = await client.from("profiles").select("id").eq("id", user.id).maybeSingle();
   if (error) throw error;
   if (data) {
@@ -53,7 +58,7 @@ async function ownedBook(id: number, user: User) {
   const { data, error } = await client.from("books").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   if (!data) fail(404, "ไม่พบเรื่องนี้");
-  if (data.owner !== user.id) fail(403, "แก้ไขได้เฉพาะผลงานของคุณ");
+  if (data.owner !== user.id && user.role !== "admin") fail(403, "แก้ไขได้เฉพาะผลงานของคุณ");
   return data as Book;
 }
 function normalizeBook(raw: Record<string, unknown>) {
@@ -99,17 +104,17 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       if (error) fail(/already/i.test(error.message) ? 409 : 400, /already/i.test(error.message) ? "อีเมลนี้มีบัญชีแล้ว" : "สมัครบัญชีไม่สำเร็จ กรุณาตรวจข้อมูล");
       if (!data.user) fail(500, "สมัครบัญชีไม่สำเร็จ กรุณาลองใหม่");
       const userId = data.user.id;
-      if (!data.session) return { status: 200, body: { id: userId, email, name, confirmation_required: true } };
-      await ensureProfile({ id: userId, email, name });
+      if (!data.session) return { status: 200, body: { id: userId, email, name, role: "user", confirmation_required: true } };
+      await ensureProfile({ id: userId, name });
       return { status: 200, headers: { "set-cookie": sessionCookie(data.session.access_token) }, body: { id: userId, email, name } };
     }
     if (s0 === "login" && method === "POST") {
       const body = parse(); const email = String(body.email ?? "").trim().toLowerCase(); const password = String(body.password ?? "");
       const { data, error } = await authClient().auth.signInWithPassword({ email, password });
       if (error || !data.user || !data.session) fail(401, "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
-      await ensureProfile({ id: data.user.id, email, name: String(data.user.user_metadata?.name ?? "") });
-      const profile = await checked<any>(client.from("profiles").select("id,name").eq("id", data.user.id).single());
-      return { status: 200, headers: { "set-cookie": sessionCookie(data.session.access_token) }, body: account({ id: data.user.id, email, name: profile.name }) };
+      await ensureProfile({ id: data.user.id, name: String(data.user.user_metadata?.name ?? "") });
+      const profile = await checked<any>(client.from("profiles").select("id,name,role").eq("id", data.user.id).single());
+      return { status: 200, headers: { "set-cookie": sessionCookie(data.session.access_token) }, body: account({ id: data.user.id, email, name: profile.name, role: profile.role === "admin" ? "admin" : "user" }) };
     }
     if (s0 === "me" && method === "GET") return { status: 200, body: await getUser(cookie) };
     if (s0 === "logout" && method === "POST") {
@@ -120,7 +125,26 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       const current = await requireUser(cookie); const name = String(parse().name ?? "").trim(); if (!name) fail(400, "กรอกนามปากกา");
       const profile = await checked<any>(client.from("profiles").update({ name }).eq("id", current.id).select("id,name").single());
       if (current.id) await client.auth.admin.updateUserById(current.id, { user_metadata: { name } });
-      return { status: 200, body: account({ id: current.id, email: current.email, name: profile.name }) };
+      return { status: 200, body: account({ id: current.id, email: current.email, name: profile.name, role: current.role }) };
+    }
+    if (s0 === "admin" && s1 === "users" && !s2 && method === "GET") {
+      await requireAdmin(cookie);
+      const [profiles, authUsers] = await Promise.all([
+        checked<any[]>(client.from("profiles").select("id,name,role,created_at").order("created_at", { ascending: false })),
+        client.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      ]);
+      if (authUsers.error) throw authUsers.error;
+      const emailById = new Map((authUsers.data.users ?? []).map(user => [user.id, user.email ?? ""]));
+      return { status: 200, body: profiles.map(profile => ({ ...profile, email: emailById.get(profile.id) ?? "" })) };
+    }
+    if (s0 === "admin" && s1 === "users" && s2 && s3 === "role" && method === "PUT") {
+      const current = await requireAdmin(cookie);
+      const role = parse().role;
+      if (role !== "user" && role !== "admin") fail(400, "บทบาทไม่ถูกต้อง");
+      if (s2 === current.id && role !== "admin") fail(400, "ไม่สามารถลดสิทธิ์แอดมินของบัญชีที่กำลังใช้งานได้");
+      const profile = await checked<any>(client.from("profiles").update({ role }).eq("id", s2).select("id,role").maybeSingle());
+      if (!profile) fail(404, "ไม่พบบัญชีนี้");
+      return { status: 200, body: profile };
     }
     if (s0 === "books" && !s1 && method === "GET") {
       const current = await getUser(cookie); const mine = params.get("mine") === "true";
@@ -140,9 +164,10 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       const id = Number(s1); const current = await getUser(cookie);
       const book = await checked<Book | null>(client.from("books").select("*").eq("id", id).maybeSingle()); if (!book) fail(404, "ไม่พบเรื่องนี้");
       const owner = Boolean(current && book.owner === current.id);
+      const admin = current?.role === "admin";
       const chapters = await checked(client.from("chapters").select("id,title,published,position,updated").eq("book_id", id).order("position").order("id"));
-      const visible = (chapters as any[]).filter(ch => ch.published || owner);
-      if (!visible.length && !owner) fail(404, "ไม่พบเรื่องนี้");
+      const visible = (chapters as any[]).filter(ch => ch.published || owner || admin);
+      if (!visible.length && !owner && !admin) fail(404, "ไม่พบเรื่องนี้");
       return { status: 200, body: { ...book, owner: book.owner ?? book.legacy_owner_id, is_owner: owner, chapters: visible } };
     }
     if (s0 === "books" && s1 && !s2 && method === "PUT") {
@@ -171,7 +196,7 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
     }
     if (s0 === "chapters" && s1 && method === "GET") {
       const current = await getUser(cookie); const row = await checked<any>(client.from("chapters").select("*,books!inner(owner,title)").eq("id", Number(s1)).maybeSingle());
-      if (!row || (!row.published && (!current || row.books.owner !== current.id))) fail(404, "ไม่พบตอนที่เผยแพร่");
+      if (!row || (!row.published && (!current || (row.books.owner !== current.id && current.role !== "admin")))) fail(404, "ไม่พบตอนที่เผยแพร่");
       return { status: 200, body: { ...row, book_title: row.books.title } };
     }
     if (s0 === "authors" && s1 && method === "GET") {

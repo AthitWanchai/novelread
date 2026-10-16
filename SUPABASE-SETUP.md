@@ -17,6 +17,20 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 เก็บ service role key ฝั่งเซิร์ฟเวอร์เท่านั้น อย่าใส่ `NEXT_PUBLIC_` หรือ commit ลง Git แล้วรัน `npm install` และ `npm run dev`
 
+## บทบาทผู้ใช้และผู้ดูแล
+
+การสมัครบัญชีใหม่จะได้ role `user` โดยอัตโนมัติ หากต้องการตั้งผู้ดูแลคนแรก ให้ผู้ใช้นั้นสมัครและยืนยันอีเมลก่อน จากนั้นรัน migration ใน `supabase/migrations/202610170002_roles.sql` แล้วกำหนด role จาก SQL Editor ของ Supabase:
+
+```sql
+update public.profiles
+set role = 'admin'
+where id = (
+  select id from auth.users where lower(email) = lower('อีเมลที่สมัคร')
+);
+```
+
+หลังจากมีผู้ดูแลแล้ว บัญชีแอดมินเรียก API `GET /api/library/admin/users` เพื่อดูบัญชี และ `PUT /api/library/admin/users/{user-id}/role` พร้อม body `{"role":"admin"}` หรือ `{"role":"user"}` เพื่อจัดการ role ได้ ผู้ใช้ทั่วไปเปลี่ยน role ของตัวเองไม่ได้
+
 ## ย้ายข้อมูลเดิม
 
 ```powershell
