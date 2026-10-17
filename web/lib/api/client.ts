@@ -1,4 +1,6 @@
-export async function libraryRequest<T>(path: string, method = "GET", body?: unknown): Promise<T> {
+let inFlightMe: Promise<any> | null = null;
+
+async function executeLibraryRequest<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api/library${path}`, {
@@ -27,6 +29,20 @@ export async function libraryRequest<T>(path: string, method = "GET", body?: unk
         : "กรุณาตรวจข้อมูลที่กรอกแล้วลองอีกครั้ง");
   }
   return result as T;
+}
+
+export async function libraryRequest<T>(path: string, method = "GET", body?: unknown): Promise<T> {
+  if (path === "/me" && method === "GET") {
+    if (inFlightMe) return inFlightMe as Promise<T>;
+    inFlightMe = executeLibraryRequest<T>(path, method, body).finally(() => {
+      inFlightMe = null;
+    });
+    return inFlightMe;
+  }
+  if (path === "/logout" || path === "/login" || path === "/register") {
+    inFlightMe = null;
+  }
+  return executeLibraryRequest<T>(path, method, body);
 }
 
 export type ReaderAccount = { id: number | string; email: string; name: string; role?: "user" | "admin" };

@@ -24,9 +24,13 @@ function runLocalFallback(request: NextRequest, path: string[], body: ArrayBuffe
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host && new URL(origin).host !== host) {
-    return NextResponse.json({ detail: "ไม่อนุญาตคำขอจากเว็บไซต์อื่น" }, { status: 403 });
+  const host = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? request.headers.get("host");
+  if (origin && host) {
+    const originHost = new URL(origin).host;
+    const directHost = request.headers.get("host");
+    if (originHost !== host && originHost !== directHost) {
+      return NextResponse.json({ detail: "ไม่อนุญาตคำขอจากเว็บไซต์อื่น" }, { status: 403 });
+    }
   }
 
   const { path } = await context.params;

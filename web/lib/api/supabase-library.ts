@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 type User = { id: string; email: string; name: string; role: "user" | "admin" };
 type Book = Record<string, any>;
 type Result = { status: number; headers?: Record<string, string>; body: unknown; rawBuffer?: Buffer };
+type SessionTokens = { access_token: string; refresh_token?: string; expires_at?: number };
+type AuthContext = { session: SessionTokens | null; setCookie?: string };
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 const URL = process.env.SUPABASE_URL ?? "https://invalid.supabase.co";
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "missing-supabase-server-key";
@@ -16,32 +18,63 @@ function authClient() {
 const COVER_BUCKET = "covers";
 
 function fail(status: number, message: string): never { throw new HttpError(status, message); }
-function tokenFrom(cookie?: string | null) {
+function sessionFrom(cookie?: string | null): SessionTokens | null {
   const pair = cookie?.split(";").map(value => value.trim()).find(value => value.startsWith("novelread_session="));
-  return pair ? decodeURIComponent(pair.slice("novelread_session=".length)) : "";
+  if (!pair) return null;
+  let raw: string;
+  try { raw = decodeURIComponent(pair.slice("novelread_session=".length)); }
+  catch { return null; }
+  try {
+    const value = JSON.parse(raw) as SessionTokens;
+    if (typeof value.access_token === "string") return value;
+  } catch { /* Support access-token cookies issued by earlier versions. */ }
+  return raw ? { access_token: raw } : null;
 }
-function sessionCookie(token: string) {
-  const age = 3600;
-  return `novelread_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+function sessionCookie(session: SessionTokens) {
+  const age = 60 * 60 * 24 * 30;
+  const value: SessionTokens = { access_token: session.access_token, refresh_token: session.refresh_token, expires_at: session.expires_at };
+  return `novelread_session=${encodeURIComponent(JSON.stringify(value))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 function clearCookie() { return "novelread_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"; }
 function account(user: User) { return user; }
-async function getUser(cookie?: string | null): Promise<User | null> {
-  const token = tokenFrom(cookie);
-  if (!token) return null;
-  const { data: { user }, error } = await client.auth.getUser(token);
-  if (error || !user) return null;
+async function getUser(cookie?: string | null, auth?: AuthContext): Promise<User | null> {
+  const session = auth?.session ?? sessionFrom(cookie);
+  if (!session?.access_token) return null;
+  let user: any = null;
+  let attemptedRefresh = false;
+  if (session.refresh_token && session.expires_at && session.expires_at <= Math.floor(Date.now() / 1000) + 60) {
+    attemptedRefresh = true;
+    const refreshed = await client.auth.refreshSession({ refresh_token: session.refresh_token });
+    if (!refreshed.error && refreshed.data.session) {
+      auth && (auth.session = refreshed.data.session);
+      auth && (auth.setCookie = sessionCookie(refreshed.data.session));
+      user = refreshed.data.user;
+    }
+  }
+  if (!user) {
+    const verified = await client.auth.getUser(session.access_token);
+    if (!verified.error) user = verified.data.user;
+  }
+  if (!user && session.refresh_token && !attemptedRefresh) {
+    const refreshed = await client.auth.refreshSession({ refresh_token: session.refresh_token });
+    if (!refreshed.error && refreshed.data.session) {
+      auth && (auth.session = refreshed.data.session);
+      auth && (auth.setCookie = sessionCookie(refreshed.data.session));
+      user = refreshed.data.user;
+    }
+  }
+  if (!user) return null;
   const { data: profile } = await client.from("profiles").select("id,name,role").eq("id", user.id).maybeSingle();
   if (!profile) return null;
   return { id: user.id, email: user.email ?? "", name: profile.name, role: profile.role === "admin" ? "admin" : "user" };
 }
-async function requireUser(cookie?: string | null) {
-  const user = await getUser(cookie);
+async function requireUser(cookie?: string | null, auth?: AuthContext) {
+  const user = await getUser(cookie, auth);
   if (!user) fail(401, "กรุณาเข้าสู่ระบบก่อน");
   return user;
 }
-async function requireAdmin(cookie?: string | null) {
-  const user = await requireUser(cookie);
+async function requireAdmin(cookie?: string | null, auth?: AuthContext) {
+  const user = await requireUser(cookie, auth);
   if (user.role !== "admin") fail(403, "ต้องใช้บัญชีผู้ดูแลระบบ");
   return user;
 }
@@ -90,6 +123,13 @@ async function publicBooks() {
 }
 
 export async function handleSupabaseLibraryRequest(method: string, path: string[], params: URLSearchParams, rawBody: ArrayBuffer | undefined, cookie?: string | null): Promise<Result> {
+  const auth: AuthContext = { session: sessionFrom(cookie) };
+  const result = await handleSupabaseLibraryRequestCore(method, path, params, rawBody, cookie, auth);
+  if (auth.setCookie && !result.headers?.["set-cookie"]) result.headers = { ...result.headers, "set-cookie": auth.setCookie };
+  return result;
+}
+
+async function handleSupabaseLibraryRequestCore(method: string, path: string[], params: URLSearchParams, rawBody: ArrayBuffer | undefined, cookie: string | null | undefined, auth: AuthContext): Promise<Result> {
   const parse = () => {
     try { return rawBody?.byteLength ? JSON.parse(Buffer.from(rawBody).toString("utf8")) as Record<string, any> : {}; }
     catch { fail(400, "รูปแบบข้อมูลไม่ถูกต้อง"); }
@@ -106,7 +146,7 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       const userId = data.user.id;
       if (!data.session) return { status: 200, body: { id: userId, email, name, role: "user", confirmation_required: true } };
       await ensureProfile({ id: userId, name });
-      return { status: 200, headers: { "set-cookie": sessionCookie(data.session.access_token) }, body: { id: userId, email, name } };
+      return { status: 200, headers: { "set-cookie": sessionCookie(data.session) }, body: { id: userId, email, name } };
     }
     if (s0 === "recover" && method === "POST") {
       const email = String(parse().email ?? "").trim().toLowerCase();
@@ -136,21 +176,21 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       if (error || !data.user || !data.session) fail(401, "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       await ensureProfile({ id: data.user.id, name: String(data.user.user_metadata?.name ?? "") });
       const profile = await checked<any>(client.from("profiles").select("id,name,role").eq("id", data.user.id).single());
-      return { status: 200, headers: { "set-cookie": sessionCookie(data.session.access_token) }, body: account({ id: data.user.id, email, name: profile.name, role: profile.role === "admin" ? "admin" : "user" }) };
+      return { status: 200, headers: { "set-cookie": sessionCookie(data.session) }, body: account({ id: data.user.id, email, name: profile.name, role: profile.role === "admin" ? "admin" : "user" }) };
     }
-    if (s0 === "me" && method === "GET") return { status: 200, body: await getUser(cookie) };
+    if (s0 === "me" && method === "GET") return { status: 200, body: await getUser(cookie, auth) };
     if (s0 === "logout" && method === "POST") {
-      await requireUser(cookie); const token = tokenFrom(cookie); if (token) await client.auth.admin.signOut(token);
+      await requireUser(cookie, auth); const token = auth.session?.access_token; if (token) await client.auth.admin.signOut(token);
       return { status: 200, headers: { "set-cookie": clearCookie() }, body: { ok: true } };
     }
     if (s0 === "profile" && method === "PUT") {
-      const current = await requireUser(cookie); const name = String(parse().name ?? "").trim(); if (!name) fail(400, "กรอกนามปากกา");
+      const current = await requireUser(cookie, auth); const name = String(parse().name ?? "").trim(); if (!name) fail(400, "กรอกนามปากกา");
       const profile = await checked<any>(client.from("profiles").update({ name }).eq("id", current.id).select("id,name").single());
       if (current.id) await client.auth.admin.updateUserById(current.id, { user_metadata: { name } });
       return { status: 200, body: account({ id: current.id, email: current.email, name: profile.name, role: current.role }) };
     }
     if (s0 === "admin" && s1 === "users" && !s2 && method === "GET") {
-      await requireAdmin(cookie);
+      await requireAdmin(cookie, auth);
       const [profiles, authUsers] = await Promise.all([
         checked<any[]>(client.from("profiles").select("id,name,role,created_at").order("created_at", { ascending: false })),
         client.auth.admin.listUsers({ page: 1, perPage: 1000 }),
@@ -160,7 +200,7 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       return { status: 200, body: profiles.map(profile => ({ ...profile, email: emailById.get(profile.id) ?? "" })) };
     }
     if (s0 === "admin" && s1 === "users" && s2 && s3 === "role" && method === "PUT") {
-      const current = await requireAdmin(cookie);
+      const current = await requireAdmin(cookie, auth);
       const role = parse().role;
       if (role !== "user" && role !== "admin") fail(400, "บทบาทไม่ถูกต้อง");
       if (s2 === current.id && role !== "admin") fail(400, "ไม่สามารถลดสิทธิ์แอดมินของบัญชีที่กำลังใช้งานได้");
@@ -169,7 +209,7 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       return { status: 200, body: profile };
     }
     if (s0 === "books" && !s1 && method === "GET") {
-      const current = await getUser(cookie); const mine = params.get("mine") === "true";
+      const current = await getUser(cookie, auth); const mine = params.get("mine") === "true";
       if (mine && !current) fail(401, "กรุณาเข้าสู่ระบบก่อน");
       let rows: any[] = mine ? await checked<any[]>(client.from("books").select("*").eq("owner", current!.id).order("updated", { ascending: false })) : await publicBooks();
       const q = (params.get("q") ?? "").trim().toLocaleLowerCase("th-TH");
@@ -179,11 +219,11 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       return { status: 200, body: rows };
     }
     if (s0 === "books" && !s1 && method === "POST") {
-      const current = await requireUser(cookie); await ensureProfile(current); const row = await checked<any>(client.from("books").insert({ ...normalizeBook(parse()), owner: current.id, updated: Date.now() / 1000 }).select("id").single());
+      const current = await requireUser(cookie, auth); await ensureProfile(current); const row = await checked<any>(client.from("books").insert({ ...normalizeBook(parse()), owner: current.id, updated: Date.now() / 1000 }).select("id").single());
       return { status: 200, body: { id: row.id } };
     }
     if (s0 === "books" && s1 && !s2 && method === "GET") {
-      const id = Number(s1); const current = await getUser(cookie);
+      const id = Number(s1); const current = await getUser(cookie, auth);
       const book = await checked<Book | null>(client.from("books").select("*").eq("id", id).maybeSingle()); if (!book) fail(404, "ไม่พบเรื่องนี้");
       const owner = Boolean(current && book.owner === current.id);
       const admin = current?.role === "admin";
@@ -193,11 +233,11 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       return { status: 200, body: { ...book, owner: book.owner ?? book.legacy_owner_id, is_owner: owner, chapters: visible } };
     }
     if (s0 === "books" && s1 && !s2 && method === "PUT") {
-      const current = await requireUser(cookie); const id = Number(s1); await ownedBook(id, current);
+      const current = await requireUser(cookie, auth); const id = Number(s1); await ownedBook(id, current);
       await checked(client.from("books").update({ ...normalizeBook(parse()), updated: Date.now() / 1000 }).eq("id", id)); return { status: 200, body: { id } };
     }
     if (s0 === "books" && s1 && s2 === "chapters" && ["POST", "PUT"].includes(method)) {
-      const current = await requireUser(cookie); const bookId = Number(s1); await ownedBook(bookId, current); const body = parse();
+      const current = await requireUser(cookie, auth); const bookId = Number(s1); await ownedBook(bookId, current); const body = parse();
       const title = String(body.title ?? ""); const content = String(body.content ?? ""); const published = Boolean(body.published);
       if (!title.trim()) fail(400, "กรอกชื่อตอน"); if (published && !content.trim()) fail(400, "เพิ่มเนื้อหาก่อนเผยแพร่");
       const now = Date.now() / 1000; let query;
@@ -210,14 +250,14 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       return { status: 200, body: { id: saved.id } };
     }
     if (s0 === "books" && s1 && s2 === "order" && method === "PUT") {
-      const current = await requireUser(cookie); const bookId = Number(s1); await ownedBook(bookId, current); const body = parse(); const ids = Array.isArray(body.ids) ? body.ids.map(Number) : [];
+      const current = await requireUser(cookie, auth); const bookId = Number(s1); await ownedBook(bookId, current); const body = parse(); const ids = Array.isArray(body.ids) ? body.ids.map(Number) : [];
       const rows = await checked(client.from("chapters").select("id").eq("book_id", bookId)); const actual = (rows as any[]).map(row => Number(row.id));
       if (ids.length !== actual.length || new Set(ids).size !== actual.length || ids.some((id: number) => !actual.includes(id))) fail(400, "รายการตอนต้องครบและไม่ซ้ำ");
       for (let i = 0; i < ids.length; i++) await checked(client.from("chapters").update({ position: i + 1 }).eq("id", ids[i]));
       return { status: 200, body: { ok: true } };
     }
     if (s0 === "chapters" && s1 && method === "GET") {
-      const current = await getUser(cookie); const row = await checked<any>(client.from("chapters").select("*,books!inner(owner,title)").eq("id", Number(s1)).maybeSingle());
+      const current = await getUser(cookie, auth); const row = await checked<any>(client.from("chapters").select("*,books!inner(owner,title)").eq("id", Number(s1)).maybeSingle());
       if (!row || (!row.published && (!current || (row.books.owner !== current.id && current.role !== "admin")))) fail(404, "ไม่พบตอนที่เผยแพร่");
       return { status: 200, body: { ...row, book_title: row.books.title } };
     }
@@ -237,11 +277,16 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       return { status: 200, body: { author: { id: s1, name: profile?.name ?? visible[0]?.pen_name ?? "นักเขียน" }, books, total, next_offset: offset + books.length < total ? offset + books.length : null } };
     }
     if (s0 === "shelf" && !s1 && method === "GET") {
-      const current = await requireUser(cookie); const rows = await checked<any[]>(client.from("shelf").select("*,books!inner(*)").eq("user_id", current.id).order("updated", { ascending: false }));
-      return { status: 200, body: (rows as any[]).map(row => ({ ...row.books, chapter_id: row.chapter_id, progress: row.progress, followed: row.followed, updated: row.updated, reading_updated: row.updated, anchor: row.anchor })) };
+      const current = await requireUser(cookie, auth); const rows = await checked<any[]>(client.from("shelf").select("*,books!inner(*)").eq("user_id", current.id).order("updated", { ascending: false }));
+      const shelf = await Promise.all(rows.map(async row => {
+        const { count, error } = await client.from("chapters").select("id", { count: "exact", head: true }).eq("book_id", row.book_id).eq("published", true);
+        if (error) throw error;
+        return { ...row.books, chapter_count: count ?? 0, chapter_id: row.chapter_id, progress: row.progress, followed: row.followed, updated: row.updated, reading_updated: row.updated, anchor: row.anchor };
+      }));
+      return { status: 200, body: shelf };
     }
     if (s0 === "shelf" && s1 && method === "PUT") {
-      const current = await requireUser(cookie); const bookId = Number(s1); const body = parse(); const prev = await checked<any>(client.from("shelf").select("*").eq("user_id", current.id).eq("book_id", bookId).maybeSingle());
+      const current = await requireUser(cookie, auth); const bookId = Number(s1); const body = parse(); const prev = await checked<any>(client.from("shelf").select("*").eq("user_id", current.id).eq("book_id", bookId).maybeSingle());
       const book = await checked<any>(client.from("books").select("id,owner").eq("id", bookId).maybeSingle());
       if (!book) fail(404, "ไม่พบเรื่องที่เผยแพร่");
       if (body.chapter_id != null) { const chapter = await checked(client.from("chapters").select("id").eq("id", Number(body.chapter_id)).eq("book_id", bookId).eq("published", true).maybeSingle()); if (!chapter) fail(400, "ตอนนี้ยังไม่เผยแพร่หรืออยู่คนละเรื่อง"); }
@@ -253,7 +298,7 @@ export async function handleSupabaseLibraryRequest(method: string, path: string[
       await checked(client.from("shelf").upsert(next, { onConflict: "user_id,book_id" })); return { status: 200, body: { ok: true } };
     }
     if (s0 === "covers" && !s1 && method === "POST") {
-      const current = await requireUser(cookie); const body = parse(); const content = Buffer.from(String(body.data ?? ""), "base64");
+      const current = await requireUser(cookie, auth); const body = parse(); const content = Buffer.from(String(body.data ?? ""), "base64");
       if (!content.length || content.length > 5 * 1024 * 1024) fail(413, "ปกต้องมีขนาดไม่เกิน 5 MB");
       const type = content.subarray(0, 8).toString("hex").startsWith("89504e47") ? "image/png" : content[0] === 0xff && content[1] === 0xd8 ? "image/jpeg" : content.subarray(8, 12).toString("ascii") === "WEBP" ? "image/webp" : "";
       if (!type) fail(400, "เลือกรูป PNG, JPEG หรือ WebP เท่านั้น"); const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";

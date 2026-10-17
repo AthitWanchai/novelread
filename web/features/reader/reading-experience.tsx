@@ -69,7 +69,9 @@ export function ReadingExperience({
     libraryRequest<ReaderAccount | null>("/me").then(async me => {
       if (!active) return;
       setAccount(me); accountRef.current = me;
-      const local = JSON.parse(localStorage.getItem(storageKey(me?.id)) || "null") as Position | null;
+      const userLocal = JSON.parse(localStorage.getItem(storageKey(me?.id)) || "null") as Position | null;
+      const guestLocal = me ? (JSON.parse(localStorage.getItem(storageKey()) || "null") as Position | null) : null;
+      const local = userLocal ?? guestLocal;
       let saved: { chapter_id: number | null; progress: number; anchor: Position["anchor"] } | undefined;
       if (me) {
         try {

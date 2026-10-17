@@ -1,5 +1,5 @@
 alter table public.profiles
-  add column role text not null default 'user'
+  add column if not exists role text not null default 'user'
   check (role in ('user', 'admin'));
 
 create or replace function public.is_admin() returns boolean
@@ -22,3 +22,5 @@ create policy "admins manage books" on public.books
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 create policy "admins manage chapters" on public.chapters
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
+create policy "admins manage covers" on storage.objects
+  for all to authenticated using (bucket_id = 'covers' and public.is_admin()) with check (bucket_id = 'covers' and public.is_admin());

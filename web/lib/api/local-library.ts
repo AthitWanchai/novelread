@@ -716,7 +716,7 @@ export function handleLocalLibraryRequest(
         const current = requireUser(db, cookieHeader);
         const rows = db
           .prepare(
-            "SELECT b.*, s.chapter_id, s.progress, s.followed, s.anchor, s.updated reading_updated FROM shelf s JOIN books b ON b.id = s.book_id WHERE s.user_id = ? ORDER BY s.updated DESC",
+            "SELECT b.*, (SELECT COUNT(*) FROM chapters c WHERE c.book_id = b.id AND c.published = 1) chapter_count, s.chapter_id, s.progress, s.followed, s.anchor, s.updated reading_updated FROM shelf s JOIN books b ON b.id = s.book_id WHERE s.user_id = ? ORDER BY s.updated DESC",
           )
           .all(current.id) as Array<Record<string, unknown>>;
         return {

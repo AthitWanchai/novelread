@@ -4,7 +4,10 @@
 
 ## ตั้งค่าโปรเจกต์
 
-1. สร้าง Supabase project แล้วรัน `supabase/migrations/202610170001_initial.sql` ใน SQL Editor ของโปรเจกต์ใหม่
+1. สร้าง Supabase project แล้วรัน migration ใน SQL Editor ตามลำดับ:
+   - `supabase/migrations/202610170001_initial.sql` (โครงสร้างหลัก, RLS, trigger ผู้ใช้ใหม่ และ Storage bucket)
+   - `supabase/migrations/202610170002_roles.sql` (ระบบบทบาท `admin`, นโยบายความปลอดภัย และสิทธิ์ของผู้ดูแล)
+   *(จำเป็นต้องรันทั้งสองไฟล์ก่อนเปิดเว็บ เนื่องจากโค้ด API เรียกใช้ฟิลด์ `profiles.role` ตั้งแต่การเข้าสู่ระบบ)*
 2. เปิด **Confirm email** ใน Authentication และกำหนด Site URL/Redirect URLs ให้ตรงกับโดเมนที่จะใช้ รวม `http://localhost:3000/account` ระหว่างพัฒนา
 3. ตั้งค่า `web/.env.local` ในเครื่อง (Next.js ใช้ `web/` เป็น project root) และ environment variables ในโฮสต์:
 
@@ -19,7 +22,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ## บทบาทผู้ใช้และผู้ดูแล
 
-การสมัครบัญชีใหม่จะได้ role `user` โดยอัตโนมัติ หากต้องการตั้งผู้ดูแลคนแรก ให้ผู้ใช้นั้นสมัครและยืนยันอีเมลก่อน จากนั้นรัน migration ใน `supabase/migrations/202610170002_roles.sql` แล้วกำหนด role จาก SQL Editor ของ Supabase:
+การสมัครบัญชีใหม่จะได้ role `user` โดยอัตโนมัติจากค่าเริ่มต้นของคอลัมน์ หากต้องการตั้งผู้ดูแลคนแรก ให้ผู้ใช้นั้นสมัครและยืนยันอีเมลก่อน แล้วรันคำสั่งกำหนด role จาก SQL Editor ของ Supabase:
 
 ```sql
 update public.profiles
@@ -29,7 +32,7 @@ where id = (
 );
 ```
 
-หลังจากมีผู้ดูแลแล้ว บัญชีแอดมินเรียก API `GET /api/library/admin/users` เพื่อดูบัญชี และ `PUT /api/library/admin/users/{user-id}/role` พร้อม body `{"role":"admin"}` หรือ `{"role":"user"}` เพื่อจัดการ role ได้ ผู้ใช้ทั่วไปเปลี่ยน role ของตัวเองไม่ได้
+หลังจากมีผู้ดูแลแล้ว บัญชีแอดมินเรียก API `GET /api/library/admin/users` เพื่อดูบัญชี และ `PUT /api/library/admin/users/{user-id}/role` พร้อม body `{"role":"admin"}` หรือ `{"role":"user"}` เพื่อจัดการ role ได้ โดยในระดับฐานข้อมูลได้จำกัด `grant update (name) on public.profiles to authenticated` เพื่อป้องกันไม่ให้ผู้ใช้ทั่วไป (หรือใครก็ตามผ่าน Supabase client ฝั่งหน้าบ้าน) แก้ไข role ของตัวเองได้โดยตรง การเปลี่ยน role จึงต้องผ่าน Admin API (ซึ่งใช้ `SUPABASE_SERVICE_ROLE_KEY`) หรือ SQL Editor เท่านั้น
 
 ## ย้ายข้อมูลเดิม
 

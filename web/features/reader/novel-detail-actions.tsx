@@ -47,12 +47,15 @@ export function NovelDetailActions({ bookId, bookTitle, chapters }: Props) {
             const entry = shelf.find(item => item.id === bookId);
             if (entry) {
               setFollowed(Boolean(entry.followed));
-              setSavedChapterId(entry.chapter_id ?? userPos?.chapter_id ?? null);
+              setSavedChapterId(entry.chapter_id ?? userPos?.chapter_id ?? guestPos?.chapter_id ?? null);
             } else if (userPos?.chapter_id) {
               setSavedChapterId(userPos.chapter_id);
+            } else if (guestPos?.chapter_id) {
+              setSavedChapterId(guestPos.chapter_id);
             }
           } catch {
             if (userPos?.chapter_id) setSavedChapterId(userPos.chapter_id);
+            else if (guestPos?.chapter_id) setSavedChapterId(guestPos.chapter_id);
           }
         } else if (guestPos?.chapter_id) {
           setSavedChapterId(guestPos.chapter_id);

@@ -28,7 +28,16 @@ export function SiteHeader() {
     libraryRequest<ReaderAccount | null>("/me")
       .then(user => { if (active) setAccount(user); })
       .catch(() => { if (active) setAccount(null); });
-    return () => { active = false; };
+
+    const handleAccount = (e: Event) => {
+      const detail = (e as CustomEvent<ReaderAccount | null>).detail;
+      if (active) setAccount(detail);
+    };
+    window.addEventListener("novelread:account", handleAccount);
+    return () => {
+      active = false;
+      window.removeEventListener("novelread:account", handleAccount);
+    };
   }, [path]);
 
   return (

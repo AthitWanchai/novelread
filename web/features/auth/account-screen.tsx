@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { libraryRequest, type ReaderAccount } from "@/lib/api/client";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
@@ -11,7 +12,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
+async function syncGuestShelf(userId: number | string) {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("read:guest:")) keys.push(key);
+    }
+    for (const key of keys) {
+      const bookId = key.slice("read:guest:".length);
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const position = JSON.parse(raw);
+      if (position && typeof position.chapter_id === "number") {
+        localStorage.setItem(`read:user:${userId}:${bookId}`, raw);
+        try {
+          await libraryRequest(`/shelf/${bookId}`, "PUT", {
+            chapter_id: position.chapter_id,
+            progress: position.progress ?? 0,
+            anchor: position.anchor,
+          });
+        } catch { continue; }
+      }
+      localStorage.removeItem(key);
+    }
+  } catch { /* Storage can be unavailable. */ }
+}
+
 export function AccountScreen() {
+  const router = useRouter();
   const [account, setAccount] = useState<ReaderAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [register, setRegister] = useState(false);
@@ -41,14 +70,24 @@ export function AccountScreen() {
         setNotice("สมัครเรียบร้อยแล้ว กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ");
         return;
       }
+      await syncGuestShelf(result.id);
       setAccount(result);
+      window.dispatchEvent(new CustomEvent("novelread:account", { detail: result }));
+      const next = new URLSearchParams(window.location.search).get("next");
+      if (next?.startsWith("/") && !next.startsWith("//")) router.replace(next);
+      else router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "เข้าสู่ระบบไม่ได้"); }
     finally { setBusy(false); }
   }
 
   async function logout() {
     setBusy(true); setError("");
-    try { await libraryRequest("/logout", "POST", {}); setAccount(null); }
+    try {
+      await libraryRequest("/logout", "POST", {});
+      setAccount(null);
+      window.dispatchEvent(new CustomEvent("novelread:account", { detail: null }));
+      router.refresh();
+    }
     catch (e) { setError(e instanceof Error ? e.message : "ออกจากระบบไม่ได้"); }
     finally { setBusy(false); }
   }

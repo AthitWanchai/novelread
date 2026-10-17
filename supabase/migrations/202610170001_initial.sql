@@ -94,7 +94,8 @@ revoke all on function public.setval_for_import(text) from public, anon, authent
 grant execute on function public.setval_for_import(text) to service_role;
 
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-values ('covers', 'covers', true, 5242880, array['image/png', 'image/jpeg', 'image/webp']);
+values ('covers', 'covers', true, 5242880, array['image/png', 'image/jpeg', 'image/webp'])
+on conflict (id) do nothing;
 create policy "covers public read" on storage.objects for select to anon, authenticated using (bucket_id = 'covers');
 create policy "covers owner upload" on storage.objects for insert to authenticated
   with check (bucket_id = 'covers' and (storage.foldername(name))[1] = auth.uid()::text);

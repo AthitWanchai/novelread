@@ -16,11 +16,19 @@ export function ContinueReading() {
 
   useEffect(() => {
     let active = true;
-    libraryRequest<ReaderAccount | null>("/me")
+    const fetchBooks = (knownAccount?: ReaderAccount | null) => {
+      (knownAccount === undefined ? libraryRequest<ReaderAccount | null>("/me") : Promise.resolve(knownAccount))
       .then(me => me ? libraryRequest<ReadingBook[]>("/shelf") : [])
-      .then(data => { if (active) setBooks(data.filter(b => b.chapter_id).slice(0, 3)); })
+      .then(data => { if (active) { setBooks(data.filter(b => b.chapter_id).slice(0, 3)); setError(false); } })
       .catch(() => { if (active) setError(true); });
-    return () => { active = false; };
+    };
+    fetchBooks();
+    const handleAccount = (event: Event) => fetchBooks((event as CustomEvent<ReaderAccount | null>).detail);
+    window.addEventListener("novelread:account", handleAccount);
+    return () => {
+      active = false;
+      window.removeEventListener("novelread:account", handleAccount);
+    };
   }, []);
 
   if (error) return <p className="inline-notice">โหลดประวัติการอ่านไม่สำเร็จ <Link href="/shelf">ลองเปิดชั้นหนังสือ</Link></p>;
