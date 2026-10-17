@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { PenLine, Sparkles } from "lucide-react";
 import { listNovels, type Novel } from "@/lib/api/novels";
 import { NovelCard } from "@/components/novel/novel-card";
 import { NovelShelf } from "@/components/novel/novel-shelf";
@@ -5,12 +7,15 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
 import { Entrance } from "@/components/ui/entrance";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SearchForm } from "@/components/search-form";
 import { SpotlightCarousel } from "@/components/novel/spotlight-carousel";
 import { CategoryBrowser } from "@/components/novel/category-browser";
 import { ContinueReading } from "@/components/novel/continue-reading";
 
 const categories = ["แฟนตาซี", "รักโรแมนติก", "วาย", "สืบสวน", "ผจญภัย", "ดราม่า", "อื่น ๆ"];
+
+export const dynamic = "force-dynamic";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; status?: string }> }) {
   const filters = await searchParams;
@@ -27,14 +32,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
     connected = false;
   }
 
-  const spotlight = novels.slice(0, 5);
-  const spotlightIds = new Set(spotlight.map(novel => novel.id));
-  const completed = novels.filter(novel => novel.status === "จบแล้ว" && !spotlightIds.has(novel.id)).slice(0, 4);
-  const completedIds = new Set(completed.map(novel => novel.id));
-  const unassigned = novels.filter(novel => !spotlightIds.has(novel.id) && !completedIds.has(novel.id));
-  const latest = unassigned.slice(0, 8);
-  const latestIds = new Set(latest.map(novel => novel.id));
-  const categoryNovels = unassigned.filter(novel => !latestIds.has(novel.id));
+  const spotlight = novels.slice(0, 3);
+  const latest = novels.slice(0, 8);
+  const completed = novels.filter(novel => novel.status === "จบแล้ว").slice(0, 4);
 
   return (
     <div className="page-shell home-page">
@@ -58,11 +58,35 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
           <>
             <ContinueReading />
             {latest.length > 0 && <NovelShelf title="อัปเดตล่าสุด" novels={latest} />}
-            <CategoryBrowser novels={categoryNovels} />
-            {completed.length > 0 && <section className="completed-section"><SectionHeading eyebrow="อ่านได้ครบทุกตอน" title="จบแล้ว อ่านได้ยาว ๆ" /><div className="completed-grid">{completed.slice(0, 4).map(novel => <NovelCard key={novel.id} novel={novel} featured />)}</div></section>}
+            <CategoryBrowser novels={novels} />
+            {completed.length > 0 && (
+              <section className="completed-section">
+                <SectionHeading
+                  eyebrow="อ่านได้ครบทุกตอน"
+                  title="จบแล้ว อ่านได้ยาว ๆ"
+                  action={
+                    <Button asChild variant="ghost" size="sm">
+                      <Link href="/?status=%E0%B8%88%E0%B8%9A%E0%B9%81%E0%B8%A5%E0%B9%89%E0%B8%A7">ดูเรื่องจบแล้วทั้งหมด <span aria-hidden="true">→</span></Link>
+                    </Button>
+                  }
+                />
+                <div className="completed-grid">{completed.map(novel => <NovelCard key={novel.id} novel={novel} featured />)}</div>
+              </section>
+            )}
+            <section className="creator-cta-banner" aria-label="เชิญชวนนักเขียน">
+              <div className="creator-cta-copy">
+                <span className="section-kicker"><Sparkles aria-hidden="true" /> พื้นที่สำหรับนักสร้างสรรค์</span>
+                <h2>มีเรื่องราวในจินตนาการที่อยากเล่าให้โลกฟังใช่ไหม?</h2>
+                <p>เปิดสตูดิโอเขียนนิยายของคุณบน Novelread จัดการสารบัญ บันทึกร่างอัตโนมัติ และเผยแพร่ให้นักอ่านติดตามได้ทันที</p>
+              </div>
+              <Button asChild className="creator-cta-btn">
+                <Link href="/studio"><PenLine aria-hidden="true" /> เริ่มเขียนนิยายเรื่องแรก</Link>
+              </Button>
+            </section>
           </>
         )}
       </Entrance>
     </div>
   );
 }
+

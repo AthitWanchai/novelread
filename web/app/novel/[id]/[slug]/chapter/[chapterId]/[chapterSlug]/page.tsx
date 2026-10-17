@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { coverUrl, getChapter, getNovel, slugify } from "@/lib/api/novels";
+import { AuthorLink } from "@/components/novel/author-link";
 import { ReadingExperience } from "@/features/reader/reading-experience";
 
 type Props = { params: Promise<{ id: string; slug: string; chapterId: string }> };
@@ -27,16 +28,35 @@ export default async function ChapterPage({ params }: Props) {
   const index = chapters.findIndex(item => item.id === chapter.id);
   const previous = index > 0 ? chapters[index - 1] : undefined;
   const next = index >= 0 && index < chapters.length - 1 ? chapters[index + 1] : undefined;
-  const chapterHref = (target: { id: number; title: string }) => `/novel/${novel.id}/${slugify(novel.title)}/chapter/${target.id}/${slugify(target.title)}`;
+  const novelSlug = slugify(novel.title);
+  const novelHref = `/novel/${novel.id}/${novelSlug}`;
+  const chapterHref = (target: { id: number; title: string }) => `${novelHref}/chapter/${target.id}/${slugify(target.title)}`;
   return (
     <article className="reader-page">
-      <div className="reader-top"><Link className="back-link" href={`/novel/${novel.id}/${slugify(novel.title)}`}>← {novel.title}</Link><span>ตอนที่ {index + 1} / {chapters.length}</span></div>
-      <header className="reader-heading"><span className="section-kicker">{novel.title}</span><h1>{chapter.title}</h1><p>โดย {novel.pen_name}</p></header>
-      <ReadingExperience bookId={novel.id} novelHref={`/novel/${novel.id}/${slugify(novel.title)}`} chapterId={chapter.id} content={chapter.content} published={chapter.published} chapterIndex={Math.max(0, index)} chapterCount={chapters.length} />
+      <div className="reader-top">
+        <Link className="back-link" href={novelHref}>← {novel.title}</Link>
+        <span>ตอนที่ {index + 1} / {chapters.length}</span>
+      </div>
+      <header className="reader-heading">
+        <span className="section-kicker">{novel.title}</span>
+        <h1>{chapter.title}</h1>
+        <p className="detail-author">โดย <AuthorLink id={novel.owner} name={novel.pen_name} /></p>
+      </header>
+      <ReadingExperience
+        bookId={novel.id}
+        novelHref={novelHref}
+        chapterId={chapter.id}
+        content={chapter.content}
+        published={chapter.published}
+        chapterIndex={Math.max(0, index)}
+        chapterCount={chapters.length}
+        chapters={chapters}
+      />
       <nav className="reader-pagination" aria-label="เปลี่ยนตอน">
         {previous ? <Link className="reader-nav-link" href={chapterHref(previous)}><span>← ตอนก่อนหน้า</span><strong>{previous.title}</strong></Link> : <span />}
-        {next ? <Link className="reader-nav-link reader-next" href={chapterHref(next)}><span>ตอนถัดไป →</span><strong>{next.title}</strong></Link> : <Link className="reader-nav-link reader-next" href={`/novel/${novel.id}/${slugify(novel.title)}`}><span>อ่านจบแล้ว</span><strong>กลับไปสารบัญ ↗</strong></Link>}
+        {next ? <Link className="reader-nav-link reader-next" href={chapterHref(next)}><span>ตอนถัดไป →</span><strong>{next.title}</strong></Link> : <Link className="reader-nav-link reader-next" href={novelHref}><span>อ่านจบแล้ว</span><strong>กลับไปสารบัญ ↗</strong></Link>}
       </nav>
     </article>
   );
 }
+

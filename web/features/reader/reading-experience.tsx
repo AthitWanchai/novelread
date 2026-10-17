@@ -1,17 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Bookmark, Check } from "lucide-react";
 import { libraryRequest, type ReaderAccount } from "@/lib/api/client";
+import { slugify, type ChapterSummary } from "@/lib/api/novels";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-type Props = { bookId: number; novelHref: string; chapterId: number; content: string; published: boolean; chapterIndex: number; chapterCount: number; followedInitially?: boolean };
+type Props = {
+  bookId: number;
+  novelHref: string;
+  chapterId: number;
+  content: string;
+  published: boolean;
+  chapterIndex: number;
+  chapterCount: number;
+  chapters?: ChapterSummary[];
+  followedInitially?: boolean;
+};
 type Position = { chapter_id: number; progress: number; anchor: { paragraph: number; character: number }; updatedAt?: number };
 
-export function ReadingExperience({ bookId, novelHref, chapterId, content, published, chapterIndex, chapterCount, followedInitially = false }: Props) {
+export function ReadingExperience({
+  bookId,
+  novelHref,
+  chapterId,
+  content,
+  published,
+  chapterIndex,
+  chapterCount,
+  chapters = [],
+  followedInitially = false,
+}: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const paragraphs = content.split(/\n\s*\n/).map(text => text.trim()).filter(Boolean);
   const contentRef = useRef<HTMLDivElement>(null);
   const positionRef = useRef<Position>({ chapter_id: chapterId, progress: 0, anchor: { paragraph: 0, character: 0 } });
@@ -22,6 +45,7 @@ export function ReadingExperience({ bookId, novelHref, chapterId, content, publi
   const [size, setSize] = useState(21);
   const [theme, setTheme] = useState("");
   const [followed, setFollowed] = useState(followedInitially);
+  const [progressPercent, setProgressPercent] = useState(0);
   const [saveMessage, setSaveMessage] = useState("");
   const storageKey = (userId?: number | string) => `read:${userId ? `user:${userId}` : "guest"}:${bookId}`;
 
@@ -56,8 +80,13 @@ export function ReadingExperience({ bookId, novelHref, chapterId, content, publi
         } catch { setSaveMessage("โหลดสถานะชั้นหนังสือไม่สำเร็จ"); }
       }
       if (!active) return;
-      const position = saved?.chapter_id === chapterId ? { chapter_id: chapterId, progress: saved.progress, anchor: saved.anchor ?? { paragraph: 0, character: 0 } } : local?.chapter_id === chapterId ? local : { chapter_id: chapterId, progress: 0, anchor: { paragraph: 0, character: 0 } };
+      const position = saved?.chapter_id === chapterId
+        ? { chapter_id: chapterId, progress: saved.progress, anchor: saved.anchor ?? { paragraph: 0, character: 0 } }
+        : local?.chapter_id === chapterId
+          ? local
+          : { chapter_id: chapterId, progress: 0, anchor: { paragraph: 0, character: 0 } };
       positionRef.current = position;
+      setProgressPercent(Math.round(position.progress * 100));
       requestAnimationFrame(() => {
         const paragraph = contentRef.current?.querySelector<HTMLElement>(`[data-paragraph="${position.anchor.paragraph}"]`);
         const node = paragraph?.firstChild;
@@ -87,8 +116,10 @@ export function ReadingExperience({ bookId, novelHref, chapterId, content, publi
     const character = Math.max(0, Math.min(textLength, Math.round(((line - rect.top) / Math.max(1, rect.height)) * textLength)));
     const total = items.reduce((sum, item) => sum + (item.textContent?.length ?? 0), 0);
     const before = items.slice(0, paragraphIndex).reduce((sum, item) => sum + (item.textContent?.length ?? 0), 0);
-    const position: Position = { chapter_id: chapterId, progress: Math.max(0, Math.min(1, (before + character) / Math.max(1, total))), anchor: { paragraph: paragraphIndex, character } };
+    const progress = Math.max(0, Math.min(1, (before + character) / Math.max(1, total)));
+    const position: Position = { chapter_id: chapterId, progress, anchor: { paragraph: paragraphIndex, character } };
     positionRef.current = position;
+    setProgressPercent(Math.round(progress * 100));
     clearTimeout(timer.current);
     timer.current = setTimeout(() => { void persist(position, accountRef.current); }, 900);
   }, [chapterId, persist]);
@@ -111,15 +142,76 @@ export function ReadingExperience({ bookId, novelHref, chapterId, content, publi
   async function toggleFollow() {
     if (accountStatus === "loading") return;
     if (accountStatus === "error") { setSaveMessage("ตรวจสอบบัญชีไม่สำเร็จ กรุณาลองใหม่"); return; }
-    if (!account) { router.push("/account"); return; }
+    if (!account) { router.push(`/account?next=${encodeURIComponent(pathname)}`); return; }
     const next = !followed; setFollowed(next);
     try { await libraryRequest(`/shelf/${bookId}`, "PUT", { followed: next }); }
     catch { setFollowed(!next); setSaveMessage("ติดตามเรื่องไม่ได้ กรุณาลองอีกครั้ง"); }
   }
 
-  return <>
-    <div className="reading-tools"><Link className="back-link" href={novelHref}>← กลับเรื่อง</Link><div className="reading-tool-actions"><Button variant="outline" size="icon" type="button" className="reader-tool-button" aria-label="ลดขนาดตัวอักษร" onClick={() => updateSize(-1)}>ก−</Button><span className="reader-size-label">{size}</span><Button variant="outline" size="icon" type="button" className="reader-tool-button" aria-label="เพิ่มขนาดตัวอักษร" onClick={() => updateSize(1)}>ก+</Button><Select value={theme || "light"} onValueChange={updateTheme}><SelectTrigger aria-label="พื้นหลังการอ่าน" className="reading-theme-select"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="light">สว่าง</SelectItem><SelectItem value="theme-sepia">กระดาษ</SelectItem><SelectItem value="theme-dark">มืด</SelectItem></SelectContent></Select></div></div>
-    <div ref={contentRef} className={`reader-content ${theme}`} style={{ fontSize: `${size}px` }}>{paragraphs.map((paragraph, index) => <p data-paragraph={index} key={index}>{paragraph}</p>)}</div>
-    <div className="reader-footer"><span>ตอนที่ {chapterIndex + 1} / {chapterCount}</span><Button variant="ghost" type="button" className="plain-link" onClick={toggleFollow} disabled={accountStatus !== "ready"}>{accountStatus === "loading" ? "กำลังตรวจสอบบัญชี…" : followed ? "ติดตามอยู่ ✓" : "＋ ติดตามเรื่อง"}</Button>{saveMessage && <span role="status">{saveMessage}</span>}</div>
-  </>;
+  function jumpToChapter(nextId: string) {
+    const target = chapters.find(item => String(item.id) === nextId);
+    if (!target || target.id === chapterId) return;
+    flushPosition();
+    router.push(`${novelHref}/chapter/${target.id}/${slugify(target.title)}`);
+  }
+
+  return (
+    <>
+      <div className="reading-tools">
+        <div className="reading-tools-left">
+          <Link className="back-link" href={novelHref}>← กลับหน้าเรื่อง</Link>
+          {chapters.length > 1 && (
+            <Select value={String(chapterId)} onValueChange={jumpToChapter}>
+              <SelectTrigger aria-label="เลือกตอนนิยาย" className="reader-chapter-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {chapters.map((item, idx) => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    ตอนที่ {idx + 1}: {item.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        <div className="reading-tool-actions">
+          <Button variant="outline" size="icon" type="button" className="reader-tool-button" aria-label="ลดขนาดตัวอักษร" onClick={() => updateSize(-1)}>ก−</Button>
+          <span className="reader-size-label" aria-label={`ขนาดตัวอักษร ${size} พิกเซล`}>{size}</span>
+          <Button variant="outline" size="icon" type="button" className="reader-tool-button" aria-label="เพิ่มขนาดตัวอักษร" onClick={() => updateSize(1)}>ก+</Button>
+          <Select value={theme || "light"} onValueChange={updateTheme}>
+            <SelectTrigger aria-label="พื้นหลังการอ่าน" className="reading-theme-select"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="light">สว่าง</SelectItem>
+              <SelectItem value="theme-sepia">กระดาษ</SelectItem>
+              <SelectItem value="theme-dark">มืด</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="reading-progress-track" aria-hidden="true">
+          <div className="reading-progress-bar" style={{ width: `${progressPercent}%` }} />
+        </div>
+      </div>
+      <div ref={contentRef} className={`reader-content ${theme}`} style={{ fontSize: `${size}px` }}>
+        {paragraphs.map((paragraph, index) => <p data-paragraph={index} key={index}>{paragraph}</p>)}
+      </div>
+      <div className="reader-footer">
+        <span>ตอนที่ {chapterIndex + 1} / {chapterCount} · อ่านแล้ว {progressPercent}%</span>
+        <div className="reader-footer-actions">
+          {saveMessage && <span className="reader-save-status" role="status">{saveMessage}</span>}
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className={`reader-follow-btn${followed ? " is-following" : ""}`}
+            onClick={toggleFollow}
+            disabled={accountStatus !== "ready"}
+          >
+            {accountStatus === "loading" ? "กำลังตรวจสอบบัญชี…" : followed ? <><Check aria-hidden="true" /> ติดตามอยู่</> : <><Bookmark aria-hidden="true" /> ติดตามเรื่อง</>}
+          </Button>
+        </div>
+      </div>
+    </>
+  );
 }
+

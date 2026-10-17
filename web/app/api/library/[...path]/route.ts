@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureLocalBackend } from "@/lib/api/local-backend";
+import { handleLocalLibraryRequest } from "@/lib/api/local-library";
 import { handleSupabaseLibraryRequest } from "@/lib/api/supabase-library";
 
 const backend = (process.env.FASTAPI_ORIGIN ?? "http://127.0.0.1:8756").replace(/\/$/, "");
+
+function runLocalFallback(request: NextRequest, path: string[], body: ArrayBuffer | undefined) {
+  const url = new URL(request.url);
+  const result = handleLocalLibraryRequest(
+    request.method,
+    path,
+    url.searchParams,
+    body,
+    request.headers.get("cookie"),
+  );
+  const headers = new Headers(result.headers);
+  if (result.rawBuffer) {
+    return new Response(new Uint8Array(result.rawBuffer), { status: result.status, headers });
+  }
+  headers.set("content-type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(result.body), { status: result.status, headers });
+}
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const origin = request.headers.get("origin");
@@ -48,25 +66,14 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     body,
     cache: "no-store",
     redirect: "manual",
+    signal: AbortSignal.timeout(1500),
   };
   let upstream: Response;
   try {
+    await ensureLocalBackend();
     upstream = await fetch(target, init);
   } catch {
-    if (!(await ensureLocalBackend())) {
-      return NextResponse.json(
-        { detail: "เริ่ม API ของ Novelread ไม่สำเร็จ กรุณาตรวจการติดตั้ง Python และลองเปิดโปรเจกต์ด้วย start.bat" },
-        { status: 503 },
-      );
-    }
-    try {
-      upstream = await fetch(target, init);
-    } catch {
-      return NextResponse.json(
-        { detail: "API ของ Novelread ยังไม่พร้อม กรุณากดลองอีกครั้ง" },
-        { status: 503 },
-      );
-    }
+    return runLocalFallback(request, path, body);
   }
   const responseHeaders = new Headers();
   for (const name of ["content-type", "cache-control", "set-cookie", "x-content-type-options"]) {

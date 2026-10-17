@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { coverUrl, getNovel, listNovels, slugify } from "@/lib/api/novels";
-import { List } from "lucide-react";
 import { AuthorLink } from "@/components/novel/author-link";
 import { NovelShelf } from "@/components/novel/novel-shelf";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { FeedbackPanel } from "@/components/ui/feedback-panel";
-import { ActionLink } from "@/components/ui/action-link";
 import { CoverImage } from "@/components/novel/cover-image";
 import { StoryBackdrop } from "@/components/novel/story-backdrop";
 import { novelBackdrop } from "@/lib/presentation/novel-art";
+import { NovelDetailActions } from "@/features/reader/novel-detail-actions";
 
 type Props = { params: Promise<{ id: string; slug: string }> };
 
@@ -32,6 +31,7 @@ export default async function NovelPage({ params }: Props) {
   const novel = await getNovel(id);
   if (!novel) notFound();
   const chapters = novel.chapters ?? [];
+  const tags = (novel.tags || "").split(",").map(tag => tag.trim()).filter(Boolean);
   const related = (await listNovels({ category: novel.category }).catch(() => [])).filter(book => book.id !== novel.id && book.owner !== novel.owner).slice(0, 6);
   return (
     <div className="content-shell novel-page">
@@ -48,17 +48,27 @@ export default async function NovelPage({ params }: Props) {
           <div className="detail-badges"><span>{novel.status}</span><span>{novel.rating}</span><span>{chapters.length} ตอน</span></div>
           <p className="detail-summary">{novel.summary || "เรื่องราวกำลังรอให้คุณเปิดอ่าน"}</p>
         </div>
-        <div className="detail-actions">
-          {chapters[0] && <ActionLink className="hero-cta detail-cta" href={`/novel/${novel.id}/${slugify(novel.title)}/chapter/${chapters[0].id}/${slugify(chapters[0].title)}`}>เริ่มอ่านตอนแรก <span aria-hidden="true">→</span></ActionLink>}
-          <ActionLink className="detail-contents-link" tone="secondary" href="#chapters"><List aria-hidden="true" /> ดูสารบัญ</ActionLink>
-        </div>
+        <NovelDetailActions bookId={novel.id} bookTitle={novel.title} chapters={chapters} />
       </article>
-      <section className="synopsis"><h2>เรื่องย่อ</h2><p>{novel.summary || "นักเขียนยังไม่ได้เพิ่มเรื่องย่อ"}</p></section>
+      <section className="synopsis">
+        <h2>เรื่องย่อ</h2>
+        <p>{novel.summary || "นักเขียนยังไม่ได้เพิ่มเรื่องย่อ"}</p>
+        {tags.length > 0 && (
+          <div className="detail-tags" aria-label="แท็กของเรื่อง">
+            {tags.map(tag => (
+              <Link key={tag} href={`/?q=${encodeURIComponent(tag)}`} className="tag-pill">
+                #{tag}
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
       <section className="chapter-section" id="chapters">
-        <SectionHeading eyebrow="THE STORY SO FAR" title="สารบัญ" action={<span className="result-count">{chapters.length} ตอน</span>} />
+        <SectionHeading eyebrow="เนื้อหาทั้งหมด" title="สารบัญ" action={<span className="result-count">{chapters.length} ตอน</span>} />
         {chapters.length ? <ol className="chapter-list">{chapters.map((chapter, index) => <li key={chapter.id}><Link href={`/novel/${novel.id}/${slugify(novel.title)}/chapter/${chapter.id}/${slugify(chapter.title)}`}><span className="chapter-number">{String(index + 1).padStart(2, "0")}</span><span className="chapter-title">{chapter.title}</span><span className="chapter-arrow" aria-hidden="true">↗</span></Link></li>)}</ol> : <FeedbackPanel title="ยังไม่มีตอนที่เผยแพร่" />}
       </section>
       <NovelShelf title="นิยายแนวเดียวกัน" novels={related} />
     </div>
   );
 }
+
